@@ -2,6 +2,7 @@
 
 #include <QEvent>
 
+static constexpr int ToastWidth = 360;
 static constexpr int ToastMargin = 12;
 static constexpr int ToastSpacing = 8;
 
@@ -55,13 +56,14 @@ void ToastManager::onToastDismissed()
 
 void ToastManager::repositionToasts()
 {
-    int x = m_parentWidget->width() - 360 - ToastMargin;
+    int x = m_parentWidget->width() - ToastWidth - ToastMargin;
     int y = ToastMargin;
 
     for (auto* toast : m_toasts) {
+        int h = toast->heightForWidth(ToastWidth);
+        toast->setFixedSize(ToastWidth, h);
         toast->move(x, y);
-        toast->adjustSize();
-        y += toast->height() + ToastSpacing;
+        y += h + ToastSpacing;
     }
 }
 
