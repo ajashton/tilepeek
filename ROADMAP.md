@@ -23,6 +23,7 @@ _Basic MBTiles metadata support_
 - Check the `tiles` table/view for spec compatibility
   - Must contain these columns: zoom_level integer, tile_column integer, tile_row integer, tile_data blob
   - Display an Error toast if out of spec and refuse to continue loading/viewing the file
+- Y-axis convention: MBTiles uses TMS convention where y=0 is the **southwest** corner. Internally, the application should use north-to-south Y ordering (y=0 = northwest corner) to match Qt's `left,top` coordinate system. MBTiles `tile_row` values must be flipped on read: `y = (2^zoom - 1) - tile_row`. Tile coordinates displayed to the user should also default to the common north-to-south Z/X/Y format used in web map URLs.
 - Design consideration: parsing & validating metadata needs to be specific to the MBTiles spec, but the metadata class used for the UI should be format-agnostic so we can add support for PMTiles format in the future.
 
 ## v0.2
@@ -30,10 +31,10 @@ _Basic MBTiles metadata support_
 _Basic raster MBTiles display_
 
 - Add a map view canvas to the app - this is a zoomable, pannable grid of images
-  - Images are loaded and positioned according to the OpenStreetMap-compatible Web Mercator tiling scheme based on their Z/X/Y integer coordinates from the `zoom_level`, `tile_column`, and `tile_row`, values of the `tiles` table/view (with x=0, y=0 representing the northwest corner of each zoom level)
+  - Images are loaded and positioned according to the Web Mercator tiling scheme based on their Z/X/Y integer coordinates (with x=0, y=0 at the northwest corner of each zoom level — see v0.1 Y-axis convention note for how MBTiles `tile_row` maps to this)
   - Only one zoom level is displayed at a time
   - The user can use their scroll wheel or trackpad to zoom in incrementally
-  - Images for a zoom level are displayed scaled from 100% to 199% - zoom in any further and switch to the next zoom level
+  - Images for a zoom level are displayed scaled from 100% to 199% — zoom in further and the map transitions to the next higher zoom level. Zoom out past 100% and the map transitions to the next lower zoom level (displayed at ~200% scale of that level). The map does not zoom beyond the available `minzoom`/`maxzoom` range.
   - Images are only kept in memory for the current map view - if the user pans or zooms them out of sight they are unloaded
 - Display the lowest-numbered zoom level by default, centered on the `center` metadata point
 - Validate the `format` metadata value
@@ -55,6 +56,7 @@ _Additional tile info_
 - Calculate additional metadata
   - Number of tiles - total and broken down by zoom level
   - p50, p90, p99 tile data sizes - total and broken down by zoom level
+  - These calculations should run asynchronously to keep the UI responsive on large tilesets
 
 ## v0.4
 
@@ -62,27 +64,42 @@ _Basic Mapbox Vector Tile PBF parsing_
 
 The following requirements all assume the user has opened a MBTiles file with the `format` metadata key set to `pbf`.
 
+- Decompress gzip-compressed `tile_data` BLOBs before parsing (gzip compression is required by the MBTiles spec for `pbf` format)
 - Check that there is a `json` metadata key - required by the spec when format is `pbf`
   - Display an Error toast if it is either missing or does not parse as valid JSON
 - Check the parsed JSON against the Vector Tileset Metadata section of the MVT spec
   - a top-level `vector_layers` key is required
   - a top-level `tilestats` key is optional
   - display a Warning toast if there are any other top-level keys
-- Do not display the `json` value with the rest of the tablular metadata; instead:
+- Do not display the `json` value with the rest of the tabular metadata; instead:
   - Add a "Layers" tab to the metadata sidebar for the `vector_layers` section
-  - Add a "Stats` tab to the metadata sidebar for the `tilestats` section (if present)
+  - Add a "Stats" tab to the metadata sidebar for the `tilestats` section (if present)
   - Add a "Raw JSON" tab
-- Attempt to parse `tile_data` blobs as Protocol Buffers
+- Parse `tile_data` BLOBs as Protocol Buffers according to the MVT spec
+  - Use a lightweight, custom protobuf decoder purpose-built for reading MVT data — we only need to decode, not encode, and only need to support the protobuf features used by the MVT schema. See [protozero](https://github.com/mapbox/protozero) for reference/inspiration.
+  - Parsed data should be structured to serve the rendering needs of v0.5 and the feature inspection needs of v0.6 (layers, features with geometry + properties + IDs)
+  - Display basic per-tile summary stats on the map canvas: feature count per layer
 
 ## v0.5
 
 _Basic vector tile rendering_
 
-- TBD: rendering strategy - we want performance, plus some flexibility to update rendering on the fly (e.g. to turn off/on vector layers, highlight selected features)
-  - Use Qt's `QPainter` class to draw points, lines, and polygons?
-    - If we go this route, should raster tiles be drawn using QPainter methods too? (eg `drawImage`, `drawPixmap`)
-  - Convert tiles to SVG and display using `QImage`?
-  - Something else?
+- Render vector tile geometry using Qt's `QPainter`
+  - This is the best fit for our goals: zero additional dependencies, hardware-accelerated 2D drawing, full control for interactive features, and MVT geometry commands (MoveTo/LineTo/ClosePath) map almost directly to `QPainterPath` operations
+  - Unify the rendering path: raster tiles should also be drawn via `QPainter` (`drawPixmap`) so both tile types share one canvas implementation
+- Rendering pipeline:
+  1. Parsed MVT data (from v0.4) provides layer/feature/geometry structs
+  2. Transform tile-local coordinates (0–extent, typically 0–4096) to screen pixel coordinates
+  3. Build `QPainterPath` objects from the MVT command stream
+  4. Draw with default styles per layer
+- Default styling:
+  - Assign a distinct color per vector layer from a built-in palette
+  - Polygons: semi-transparent fill with solid stroke
+  - Lines: solid colored stroke
+  - Points: small filled circles
+- Enable anti-aliasing by default (`QPainter::Antialiasing` render hint)
+- Cache rendered vector tiles to `QPixmap` — invalidate on pan/zoom to avoid re-drawing the same geometry every paint event
+- Support toggling individual vector layers on/off via the Layers sidebar
 
 ## v0.6
 
@@ -95,7 +112,7 @@ _Inspect vector tile features_
 
 ## v0.7
 
-_PMTiles support
+_PMTiles support_
 
 - Load metadata and raster or vector tiles from PMTiles according to the spec - see `reference/PMTiles-v3.5.md`
 - Consider vendoring the [official C++ library](https://github.com/protomaps/PMTiles/tree/main/cpp)
