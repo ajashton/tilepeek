@@ -98,6 +98,7 @@ _Inspect vector tile features_
 _PMTiles support
 
 - Load metadata and raster or vector tiles from PMTiles according to the spec - see `reference/PMTiles-v3.5.md`
+- Consider vendoring the [official C++ library](https://github.com/protomaps/PMTiles/tree/main/cpp)
 
 ## v0.8
 
@@ -120,6 +121,8 @@ _Advanced tile stats_
 ## TBD / Beyond v1.0
 
 - Do we want to handle the optional `grids` & `grid_data` tables of MBTiles files?
+- Should we be lenient about compression in MBTiles? The 1.3 spec requires gzip compression, but some tools may produce uncompressed tiles or use other compression algorithms.
+  - Less of an issue for PMTiles - multiple compression options are standardized in the spec
 - Should "fallback" overzooming be handled?
   - This is where, instead generating duplicate tiles for areas of empty land/water at all zoom levels, the map replaces missing tiles with stretched out copies from further up the pyramid
   - There is no mention of this in the MBTiles spec - how exactly do client libraries handle this?
