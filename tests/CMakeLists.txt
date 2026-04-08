@@ -1,0 +1,10 @@
+function(add_tilepeek_test name)
+    add_executable(${name} ${name}.cpp)
+    target_link_libraries(${name} PRIVATE tilepeek_lib Qt6::Test)
+    add_test(NAME ${name} COMMAND ${name})
+endfunction()
+
+add_tilepeek_test(tst_TileCoords)
+add_tilepeek_test(tst_TilesetMetadata)
+add_tilepeek_test(tst_MBTilesMetadataParser)
+add_tilepeek_test(tst_MBTilesReader)
