@@ -5,7 +5,7 @@
 
 class MapViewport;
 class MetadataSidebar;
-class RasterTileProvider;
+class TileProvider;
 class TileStatsWorker;
 class ToastManager;
 class QThread;
@@ -35,7 +35,7 @@ private:
     MapViewport* m_mapViewport = nullptr;
     MetadataSidebar* m_sidebar = nullptr;
     ToastManager* m_toastManager = nullptr;
-    std::unique_ptr<RasterTileProvider> m_tileProvider;
+    std::unique_ptr<TileProvider> m_tileProvider;
 
     QThread* m_statsThread = nullptr;
 };

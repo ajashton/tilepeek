@@ -1,8 +1,10 @@
 #include "app/MainWindow.h"
 #include "map/MapViewport.h"
 #include "map/RasterTileProvider.h"
+#include "map/VectorTileProvider.h"
 #include "mbtiles/MBTilesMetadataParser.h"
 #include "mbtiles/MBTilesReader.h"
+#include "mbtiles/VectorMetadataParser.h"
 #include "model/TileStatistics.h"
 #include "stats/TileStatsWorker.h"
 #include "widgets/MetadataSidebar.h"
@@ -129,8 +131,6 @@ void MainWindow::loadMBTiles(const QString& path)
 
     auto [metadata, messages] = MBTilesMetadataParser::parse(rawMetadata, zoomRange);
 
-    m_sidebar->setMetadata(metadata);
-
     for (const auto& msg : messages) {
         if (msg.level == ValidationMessage::Level::Error)
             m_toastManager->showError(msg.text);
@@ -138,7 +138,7 @@ void MainWindow::loadMBTiles(const QString& path)
             m_toastManager->showWarning(msg.text);
     }
 
-    // Extract format and zoom range for tile provider
+    // Extract format and zoom range
     auto formatOpt = metadata.value("format");
     QString format = formatOpt.value_or("png");
 
@@ -153,38 +153,65 @@ void MainWindow::loadMBTiles(const QString& path)
     if (auto v = metadata.value("maxzoom"))
         maxZoom = v->toInt();
 
-    // Create tile provider and validate format
-    auto provider = std::make_unique<RasterTileProvider>(
-        std::move(reader), format, minZoom, maxZoom);
+    if (format == "pbf") {
+        // Vector tile path
+        auto jsonStr = metadata.value("json");
+        if (!jsonStr) {
+            m_toastManager->showError("Missing required 'json' metadata key for pbf format");
+            m_sidebar->setMetadata(metadata);
+        } else {
+            auto vResult = VectorMetadataParser::parse(*jsonStr);
+            for (const auto& vmsg : vResult.messages) {
+                if (vmsg.level == ValidationMessage::Level::Error)
+                    m_toastManager->showError(vmsg.text);
+                else
+                    m_toastManager->showWarning(vmsg.text);
+            }
+            if (vResult.metadata)
+                m_sidebar->setVectorMetadata(metadata, *vResult.metadata);
+            else
+                m_sidebar->setMetadata(metadata);
+        }
 
-    auto formatResult = provider->validateFormat();
-    switch (formatResult.status) {
-    case FormatValidationResult::Status::Unsupported:
-        m_toastManager->showError(formatResult.message);
-        setWindowTitle("TilePeek - " + QFileInfo(path).fileName());
-        return;
-    case FormatValidationResult::Status::UnrecognizedFormat:
-        m_toastManager->showError(formatResult.message);
-        setWindowTitle("TilePeek - " + QFileInfo(path).fileName());
-        return;
-    case FormatValidationResult::Status::FormatMismatch:
-        m_toastManager->showWarning(formatResult.message);
-        break;
-    case FormatValidationResult::Status::Ok:
-        break;
+        m_tileProvider = std::make_unique<VectorTileProvider>(
+            std::move(reader), minZoom, maxZoom);
+    } else {
+        // Raster tile path
+        auto provider = std::make_unique<RasterTileProvider>(
+            std::move(reader), format, minZoom, maxZoom);
+
+        auto formatResult = provider->validateFormat();
+        switch (formatResult.status) {
+        case FormatValidationResult::Status::Unsupported:
+            m_toastManager->showError(formatResult.message);
+            m_sidebar->setMetadata(metadata);
+            setWindowTitle("TilePeek - " + QFileInfo(path).fileName());
+            return;
+        case FormatValidationResult::Status::UnrecognizedFormat:
+            m_toastManager->showError(formatResult.message);
+            m_sidebar->setMetadata(metadata);
+            setWindowTitle("TilePeek - " + QFileInfo(path).fileName());
+            return;
+        case FormatValidationResult::Status::FormatMismatch:
+            m_toastManager->showWarning(formatResult.message);
+            break;
+        case FormatValidationResult::Status::Ok:
+            break;
+        }
+
+        m_sidebar->setMetadata(metadata);
+        m_tileProvider = std::move(provider);
     }
 
-    m_tileProvider = std::move(provider);
     m_mapViewport->setTileProvider(m_tileProvider.get());
 
-    // Pass bounds and center to viewport for overlay rendering
+    // Pass bounds and center to viewport
     auto boundsOpt = MBTilesMetadataParser::parseBounds(metadata.value("bounds").value_or(""));
     auto centerOpt = MBTilesMetadataParser::parseCenter(metadata.value("center").value_or(""));
 
     m_mapViewport->setBounds(boundsOpt);
     m_mapViewport->setCenter(centerOpt);
 
-    // Set initial view: lowest zoom, centered on center metadata point
     if (centerOpt) {
         m_mapViewport->setView(centerOpt->longitude, centerOpt->latitude, minZoom);
     } else {
@@ -193,7 +220,7 @@ void MainWindow::loadMBTiles(const QString& path)
 
     setWindowTitle("TilePeek - " + QFileInfo(path).fileName());
 
-    // Start async tile statistics calculation
+    // Start async tile statistics
     m_sidebar->setStatsPlaceholder();
 
     auto* thread = new QThread(this);

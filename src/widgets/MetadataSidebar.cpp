@@ -1,28 +1,33 @@
 #include "widgets/MetadataSidebar.h"
+#include "mbtiles/VectorMetadataParser.h"
 #include "model/TileStatistics.h"
 #include "util/FormatUtils.h"
 
 #include <QFormLayout>
 #include <QFrame>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLabel>
 #include <QLocale>
+#include <QPlainTextEdit>
 #include <QScrollArea>
+#include <QTabWidget>
 #include <QVBoxLayout>
 
 MetadataSidebar::MetadataSidebar(QWidget* parent)
     : QWidget(parent)
 {
-    auto* outerLayout = new QVBoxLayout(this);
-    outerLayout->setContentsMargins(0, 0, 0, 0);
+    m_outerLayout = new QVBoxLayout(this);
+    m_outerLayout->setContentsMargins(0, 0, 0, 0);
 
-    auto* header = new QLabel("Metadata", this);
-    header->setStyleSheet("font-weight: bold; font-size: 14px; padding: 8px;");
-    outerLayout->addWidget(header);
+    m_header = new QLabel("Metadata", this);
+    m_header->setStyleSheet("font-weight: bold; font-size: 14px; padding: 8px;");
+    m_outerLayout->addWidget(m_header);
 
     m_scrollArea = new QScrollArea(this);
     m_scrollArea->setWidgetResizable(true);
     m_scrollArea->setFrameShape(QFrame::NoFrame);
-    outerLayout->addWidget(m_scrollArea);
+    m_outerLayout->addWidget(m_scrollArea);
 
     setMinimumWidth(260);
     setMaximumWidth(400);
@@ -37,15 +42,88 @@ void MetadataSidebar::clear()
         m_contentLayout = nullptr;
         m_statsLayout = nullptr;
     }
+    if (m_tabWidget) {
+        delete m_tabWidget;
+        m_tabWidget = nullptr;
+    }
+    if (!m_scrollArea->parent()) {
+        // If scrollArea was removed from layout for tab mode, re-add it
+    }
+    m_scrollArea->setWidget(nullptr);
+    m_scrollArea->show();
+    m_header->show();
 }
 
 void MetadataSidebar::setMetadata(const TilesetMetadata& metadata)
 {
     clear();
 
-    m_contentWidget = new QWidget;
-    m_contentLayout = new QVBoxLayout(m_contentWidget);
-    m_contentLayout->setContentsMargins(8, 4, 8, 8);
+    m_contentWidget = buildMetadataWidget(metadata, false);
+    m_contentLayout = qobject_cast<QVBoxLayout*>(m_contentWidget->layout());
+
+    // Reserve space for stats section
+    m_statsLayout = new QVBoxLayout;
+    m_contentLayout->addLayout(m_statsLayout);
+    m_contentLayout->addStretch();
+
+    m_scrollArea->setWidget(m_contentWidget);
+}
+
+void MetadataSidebar::setVectorMetadata(const TilesetMetadata& metadata,
+                                         const VectorMetadata& vectorMeta)
+{
+    clear();
+
+    // Hide raster-mode widgets
+    m_scrollArea->hide();
+    m_header->hide();
+
+    // Create tabbed widget
+    m_tabWidget = new QTabWidget(this);
+    m_outerLayout->addWidget(m_tabWidget);
+
+    // Metadata tab (skips the json field)
+    auto* metaWidget = buildMetadataWidget(metadata, true);
+    m_contentLayout = qobject_cast<QVBoxLayout*>(metaWidget->layout());
+    m_statsLayout = new QVBoxLayout;
+    m_contentLayout->addLayout(m_statsLayout);
+    m_contentLayout->addStretch();
+
+    auto* metaScroll = new QScrollArea;
+    metaScroll->setWidgetResizable(true);
+    metaScroll->setFrameShape(QFrame::NoFrame);
+    metaScroll->setWidget(metaWidget);
+    m_contentWidget = metaWidget;
+    m_tabWidget->addTab(metaScroll, "Metadata");
+
+    // Layers tab
+    auto* layersWidget = buildLayersWidget(vectorMeta.vectorLayers);
+    auto* layersScroll = new QScrollArea;
+    layersScroll->setWidgetResizable(true);
+    layersScroll->setFrameShape(QFrame::NoFrame);
+    layersScroll->setWidget(layersWidget);
+    m_tabWidget->addTab(layersScroll, "Layers");
+
+    // Tilestats tab (only if present)
+    if (vectorMeta.hasTilestats) {
+        auto* statsWidget = buildTilestatsWidget(vectorMeta.tilestats);
+        auto* statsScroll = new QScrollArea;
+        statsScroll->setWidgetResizable(true);
+        statsScroll->setFrameShape(QFrame::NoFrame);
+        statsScroll->setWidget(statsWidget);
+        m_tabWidget->addTab(statsScroll, "Stats");
+    }
+
+    // Raw JSON tab
+    auto* jsonWidget = buildRawJsonWidget(vectorMeta.rawJson);
+    m_tabWidget->addTab(jsonWidget, "Raw JSON");
+}
+
+QWidget* MetadataSidebar::buildMetadataWidget(const TilesetMetadata& metadata, bool skipJson)
+{
+    auto* widget = new QWidget;
+    auto* layout = new QVBoxLayout(widget);
+    layout->setContentsMargins(8, 4, 8, 8);
 
     static constexpr FieldCategory categories[] = {
         FieldCategory::Required,
@@ -57,18 +135,92 @@ void MetadataSidebar::setMetadata(const TilesetMetadata& metadata)
     bool firstSection = true;
     for (auto category : categories) {
         auto fields = metadata.fieldsByCategory(category);
+        if (skipJson) {
+            fields.removeIf([](const MetadataField& f) { return f.name == "json"; });
+        }
         if (fields.isEmpty())
             continue;
-        addSection(m_contentLayout, fields, !firstSection);
+        addSection(layout, fields, !firstSection);
         firstSection = false;
     }
 
-    // Reserve space for stats section
-    m_statsLayout = new QVBoxLayout;
-    m_contentLayout->addLayout(m_statsLayout);
+    return widget;
+}
 
-    m_contentLayout->addStretch();
-    m_scrollArea->setWidget(m_contentWidget);
+QWidget* MetadataSidebar::buildLayersWidget(const QList<VectorLayerInfo>& layers)
+{
+    auto* widget = new QWidget;
+    auto* layout = new QVBoxLayout(widget);
+    layout->setContentsMargins(8, 4, 8, 8);
+
+    for (int i = 0; i < layers.size(); ++i) {
+        const auto& layer = layers[i];
+
+        if (i > 0) {
+            auto* line = new QFrame;
+            line->setFrameShape(QFrame::HLine);
+            line->setFrameShadow(QFrame::Sunken);
+            layout->addWidget(line);
+        }
+
+        auto* form = new QFormLayout;
+        form->setContentsMargins(0, 4, 0, 4);
+        form->setHorizontalSpacing(12);
+        form->setVerticalSpacing(4);
+
+        auto* nameLabel = new QLabel(layer.id);
+        nameLabel->setStyleSheet("font-weight: bold; color: #333;");
+        form->addRow("Layer", nameLabel);
+
+        if (!layer.description.isEmpty())
+            form->addRow("Description", new QLabel(layer.description));
+
+        form->addRow("Zoom", new QLabel(QString("%1–%2").arg(layer.minzoom).arg(layer.maxzoom)));
+
+        if (!layer.fields.isEmpty()) {
+            QStringList fieldList;
+            for (auto it = layer.fields.constBegin(); it != layer.fields.constEnd(); ++it)
+                fieldList << QString("%1 (%2)").arg(it.key(), it.value());
+
+            auto* fieldsLabel = new QLabel(fieldList.join("\n"));
+            fieldsLabel->setWordWrap(true);
+            fieldsLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+            form->addRow("Fields", fieldsLabel);
+        }
+
+        layout->addLayout(form);
+    }
+
+    layout->addStretch();
+    return widget;
+}
+
+QWidget* MetadataSidebar::buildTilestatsWidget(const QJsonObject& tilestats)
+{
+    auto* widget = new QWidget;
+    auto* layout = new QVBoxLayout(widget);
+    layout->setContentsMargins(8, 4, 8, 8);
+
+    QJsonDocument doc(tilestats);
+    auto* text = new QPlainTextEdit(QString::fromUtf8(doc.toJson(QJsonDocument::Indented)));
+    text->setReadOnly(true);
+    QFont mono("monospace", 9);
+    mono.setStyleHint(QFont::Monospace);
+    text->setFont(mono);
+    layout->addWidget(text);
+
+    return widget;
+}
+
+QWidget* MetadataSidebar::buildRawJsonWidget(const QJsonObject& json)
+{
+    QJsonDocument doc(json);
+    auto* text = new QPlainTextEdit(QString::fromUtf8(doc.toJson(QJsonDocument::Indented)));
+    text->setReadOnly(true);
+    QFont mono("monospace", 9);
+    mono.setStyleHint(QFont::Monospace);
+    text->setFont(mono);
+    return text;
 }
 
 void MetadataSidebar::addSection(QVBoxLayout* layout, const QList<MetadataField>& fields,

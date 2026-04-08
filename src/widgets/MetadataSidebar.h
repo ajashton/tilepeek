@@ -4,9 +4,14 @@
 
 #include <QWidget>
 
+class QLabel;
 class QScrollArea;
+class QTabWidget;
 class QVBoxLayout;
 struct TileStatistics;
+struct VectorLayerInfo;
+struct VectorMetadata;
+class QJsonObject;
 
 class MetadataSidebar : public QWidget {
     Q_OBJECT
@@ -14,6 +19,7 @@ public:
     explicit MetadataSidebar(QWidget* parent = nullptr);
 
     void setMetadata(const TilesetMetadata& metadata);
+    void setVectorMetadata(const TilesetMetadata& metadata, const VectorMetadata& vectorMeta);
     void setStatsPlaceholder();
     void setTileStatistics(const TileStatistics& stats);
     void clear();
@@ -21,9 +27,20 @@ public:
 private:
     void addSection(QVBoxLayout* layout, const QList<MetadataField>& fields, bool addSeparator);
     void clearStatsSection();
+    QWidget* buildMetadataWidget(const TilesetMetadata& metadata, bool skipJson);
+    QWidget* buildLayersWidget(const QList<VectorLayerInfo>& layers);
+    QWidget* buildTilestatsWidget(const QJsonObject& tilestats);
+    QWidget* buildRawJsonWidget(const QJsonObject& json);
 
-    QScrollArea* m_scrollArea;
+    QVBoxLayout* m_outerLayout = nullptr;
+    QLabel* m_header = nullptr;
+
+    // Raster mode
+    QScrollArea* m_scrollArea = nullptr;
     QWidget* m_contentWidget = nullptr;
     QVBoxLayout* m_contentLayout = nullptr;
     QVBoxLayout* m_statsLayout = nullptr;
+
+    // Vector mode (tabbed)
+    QTabWidget* m_tabWidget = nullptr;
 };
