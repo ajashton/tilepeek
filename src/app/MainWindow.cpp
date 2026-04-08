@@ -57,11 +57,11 @@ void MainWindow::setupCentralWidget()
 
     m_sidebar = new MetadataSidebar(splitter);
 
-    splitter->addWidget(m_mapPlaceholder);
     splitter->addWidget(m_sidebar);
-    splitter->setStretchFactor(0, 1);
-    splitter->setStretchFactor(1, 0);
-    splitter->setSizes({700, 300});
+    splitter->addWidget(m_mapPlaceholder);
+    splitter->setStretchFactor(0, 0);
+    splitter->setStretchFactor(1, 1);
+    splitter->setSizes({300, 700});
 
     setCentralWidget(splitter);
 }
