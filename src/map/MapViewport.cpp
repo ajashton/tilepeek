@@ -1,5 +1,6 @@
 #include "map/MapViewport.h"
 #include "map/WebMercator.h"
+#include "util/FormatUtils.h"
 
 #include <QMouseEvent>
 #include <QPainter>
@@ -19,6 +20,7 @@ void MapViewport::setTileProvider(TileProvider* provider)
 {
     m_provider = provider;
     m_cache.clear();
+    m_tileSizeCache.clear();
     update();
 }
 
@@ -39,11 +41,25 @@ void MapViewport::clear()
 {
     m_provider = nullptr;
     m_cache.clear();
+    m_tileSizeCache.clear();
     m_zoom = 0;
     m_scale = 1.0;
     m_centerPixel = QPointF();
+    m_bounds.reset();
+    m_center.reset();
     update();
 }
+
+void MapViewport::setShowTileBoundaries(bool on) { m_showTileBoundaries = on; update(); }
+void MapViewport::setShowTileIds(bool on) { m_showTileIds = on; update(); }
+void MapViewport::setShowTileSizes(bool on) { m_showTileSizes = on; update(); }
+void MapViewport::setShowBounds(bool on) { m_showBounds = on; update(); }
+void MapViewport::setShowCenter(bool on) { m_showCenter = on; update(); }
+
+void MapViewport::setBounds(std::optional<ParsedBounds> bounds) { m_bounds = bounds; update(); }
+void MapViewport::setCenter(std::optional<ParsedCenter> center) { m_center = center; update(); }
+
+// --- Paint ---
 
 void MapViewport::paintEvent(QPaintEvent* /*event*/)
 {
@@ -55,27 +71,151 @@ void MapViewport::paintEvent(QPaintEvent* /*event*/)
 
     double scaledTileSize = WebMercator::TileSize * m_scale;
     QPointF viewCenter(width() / 2.0, height() / 2.0);
-
     QRect tiles = visibleTileRange();
 
+    // Pass 1: tile imagery
     for (int ty = tiles.top(); ty <= tiles.bottom(); ++ty) {
         for (int tx = tiles.left(); tx <= tiles.right(); ++tx) {
-            QPointF worldPixel(tx * WebMercator::TileSize, ty * WebMercator::TileSize);
-            QPointF offset = (worldPixel - m_centerPixel) * m_scale;
-            QPointF screenPos = viewCenter + offset;
-            QRectF tileRect(screenPos, QSizeF(scaledTileSize, scaledTileSize));
-
+            QRectF tileRect = tileScreenRect(tx, ty, viewCenter, scaledTileSize);
             QPixmap pixmap = fetchTile(m_zoom, tx, ty);
+
             if (!pixmap.isNull()) {
                 painter.drawPixmap(tileRect, pixmap, pixmap.rect());
             } else {
-                painter.fillRect(tileRect, QColor("#d0d0d0"));
-                painter.setPen(QColor("#bbb"));
-                painter.drawRect(tileRect);
+                drawMissingTile(painter, tileRect);
             }
         }
     }
+
+    // Pass 2: tile overlays (on top of all tiles)
+    if (m_showTileBoundaries || m_showTileIds || m_showTileSizes)
+        drawTileOverlays(painter, tiles, viewCenter, scaledTileSize);
+
+    // Pass 3: geo overlays
+    drawBoundsOverlay(painter, viewCenter);
+    drawCenterOverlay(painter, viewCenter);
 }
+
+// --- Overlay rendering ---
+
+void MapViewport::drawMissingTile(QPainter& painter, const QRectF& tileRect)
+{
+    painter.fillRect(tileRect, QColor("#d0d0d0"));
+
+    QPen xPen(QColor(200, 60, 60, 160), 2.0);
+    painter.setPen(xPen);
+    painter.drawLine(tileRect.topLeft(), tileRect.bottomRight());
+    painter.drawLine(tileRect.topRight(), tileRect.bottomLeft());
+}
+
+void MapViewport::drawTileOverlays(QPainter& painter, const QRect& tiles,
+                                    QPointF viewCenter, double scaledTileSize)
+{
+    QFont monoFont("monospace", 10);
+    monoFont.setStyleHint(QFont::Monospace);
+    painter.setFont(monoFont);
+
+    for (int ty = tiles.top(); ty <= tiles.bottom(); ++ty) {
+        for (int tx = tiles.left(); tx <= tiles.right(); ++tx) {
+            QRectF tileRect = tileScreenRect(tx, ty, viewCenter, scaledTileSize);
+
+            if (m_showTileBoundaries) {
+                painter.setPen(QPen(QColor(0, 0, 0, 80), 1.0));
+                painter.setBrush(Qt::NoBrush);
+                painter.drawRect(tileRect);
+            }
+
+            QStringList lines;
+
+            if (m_showTileIds)
+                lines << QString("%1/%2/%3").arg(m_zoom).arg(tx).arg(ty);
+
+            if (m_showTileSizes) {
+                auto sizeOpt = fetchTileSize(m_zoom, tx, ty);
+                if (sizeOpt && *sizeOpt >= 0)
+                    lines << FormatUtils::formatTileSize(*sizeOpt);
+                else
+                    lines << "missing";
+            }
+
+            if (!lines.isEmpty())
+                drawTileText(painter, tileRect, lines);
+        }
+    }
+}
+
+void MapViewport::drawTileText(QPainter& painter, const QRectF& tileRect,
+                                const QStringList& lines)
+{
+    constexpr int padding = 4;
+    QFontMetrics fm(painter.font());
+    int lineHeight = fm.height();
+
+    int textBlockWidth = 0;
+    for (const auto& line : lines)
+        textBlockWidth = std::max(textBlockWidth, fm.horizontalAdvance(line));
+
+    int textBlockHeight = lines.size() * lineHeight;
+
+    QRectF bgRect(tileRect.left() + padding, tileRect.top() + padding,
+                  textBlockWidth + 2 * padding, textBlockHeight + 2 * padding);
+    painter.fillRect(bgRect, QColor(255, 255, 255, 180));
+
+    painter.setPen(Qt::black);
+    int y = static_cast<int>(tileRect.top()) + padding + fm.ascent() + padding;
+    for (const auto& line : lines) {
+        painter.drawText(static_cast<int>(tileRect.left()) + 2 * padding, y, line);
+        y += lineHeight;
+    }
+}
+
+void MapViewport::drawBoundsOverlay(QPainter& painter, QPointF viewCenter)
+{
+    if (!m_showBounds || !m_bounds)
+        return;
+
+    QPointF topLeft = geoToScreen(m_bounds->left, m_bounds->top, viewCenter);
+    QPointF bottomRight = geoToScreen(m_bounds->right, m_bounds->bottom, viewCenter);
+    QRectF boundsRect(topLeft, bottomRight);
+
+    painter.setPen(QPen(QColor(30, 120, 220, 200), 2.0, Qt::DashLine));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawRect(boundsRect);
+}
+
+void MapViewport::drawCenterOverlay(QPainter& painter, QPointF viewCenter)
+{
+    if (!m_showCenter || !m_center)
+        return;
+
+    QPointF screenPos = geoToScreen(m_center->longitude, m_center->latitude, viewCenter);
+
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(QColor(220, 40, 40, 220));
+    painter.drawEllipse(screenPos, 6.0, 6.0);
+
+    painter.setPen(QPen(Qt::black, 1.5));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawEllipse(screenPos, 6.0, 6.0);
+}
+
+// --- Coordinate helpers ---
+
+QRectF MapViewport::tileScreenRect(int tx, int ty, QPointF viewCenter, double scaledTileSize) const
+{
+    QPointF worldPixel(tx * WebMercator::TileSize, ty * WebMercator::TileSize);
+    QPointF offset = (worldPixel - m_centerPixel) * m_scale;
+    return QRectF(viewCenter + offset, QSizeF(scaledTileSize, scaledTileSize));
+}
+
+QPointF MapViewport::geoToScreen(double lon, double lat, QPointF viewCenter) const
+{
+    double wx = WebMercator::lonToPixelX(lon, m_zoom);
+    double wy = WebMercator::latToPixelY(lat, m_zoom);
+    return viewCenter + (QPointF(wx, wy) - m_centerPixel) * m_scale;
+}
+
+// --- Input handling ---
 
 void MapViewport::wheelEvent(QWheelEvent* event)
 {
@@ -94,10 +234,8 @@ void MapViewport::wheelEvent(QWheelEvent* event)
     } else if (newScale < 1.0 && m_zoom > m_provider->minZoom()) {
         transitionZoom(m_zoom - 1);
     } else if (newScale >= 2.0) {
-        // At maxZoom — clamp
         m_scale = 1.99;
     } else if (newScale < 1.0) {
-        // At minZoom — clamp
         m_scale = 1.0;
     } else {
         m_scale = newScale;
@@ -138,6 +276,8 @@ void MapViewport::mouseReleaseEvent(QMouseEvent* event)
     }
 }
 
+// --- Internal state ---
+
 void MapViewport::clampViewport()
 {
     double maxPixel = static_cast<double>(WebMercator::mapSizePixels(m_zoom));
@@ -156,6 +296,11 @@ void MapViewport::transitionZoom(int newZoom)
     }
     m_zoom = newZoom;
     m_cache.evictOtherZooms(m_zoom);
+
+    // Evict tile sizes for other zoom levels
+    std::erase_if(m_tileSizeCache, [&](const auto& entry) {
+        return entry.first.zoom != m_zoom;
+    });
 }
 
 QRect MapViewport::visibleTileRange() const
@@ -190,4 +335,18 @@ QPixmap MapViewport::fetchTile(int zoom, int x, int y)
         }
     }
     return {};
+}
+
+std::optional<int> MapViewport::fetchTileSize(int zoom, int x, int y)
+{
+    TileKey key{zoom, x, y};
+    auto it = m_tileSizeCache.find(key);
+    if (it != m_tileSizeCache.end())
+        return it->second;
+
+    std::optional<int> size;
+    if (m_provider)
+        size = m_provider->tileSizeAt(zoom, x, y);
+    m_tileSizeCache[key] = size;
+    return size;
 }

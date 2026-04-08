@@ -11,6 +11,7 @@ public:
     // Returns std::nullopt if the tile doesn't exist or can't be decoded.
     // Coordinates use XYZ convention (y=0 at north).
     virtual std::optional<QPixmap> tileAt(int zoom, int x, int y) = 0;
+    virtual std::optional<int> tileSizeAt(int zoom, int x, int y) = 0;
 
     virtual int minZoom() const = 0;
     virtual int maxZoom() const = 0;

@@ -3,6 +3,8 @@
 #include "map/RasterTileProvider.h"
 #include "mbtiles/MBTilesMetadataParser.h"
 #include "mbtiles/MBTilesReader.h"
+#include "model/TileStatistics.h"
+#include "stats/TileStatsWorker.h"
 #include "widgets/MetadataSidebar.h"
 #include "widgets/ToastManager.h"
 
@@ -14,6 +16,7 @@
 #include <QMenuBar>
 #include <QMimeData>
 #include <QSplitter>
+#include <QThread>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -22,13 +25,18 @@ MainWindow::MainWindow(QWidget* parent)
     resize(1000, 700);
     setAcceptDrops(true);
 
-    setupMenuBar();
     setupCentralWidget();
+    setupMenuBar();
 
     m_toastManager = new ToastManager(this);
+
+    qRegisterMetaType<TileStatistics>("TileStatistics");
 }
 
-MainWindow::~MainWindow() = default;
+MainWindow::~MainWindow()
+{
+    stopStatsThread();
+}
 
 void MainWindow::setupMenuBar()
 {
@@ -43,6 +51,31 @@ void MainWindow::setupMenuBar()
     auto* quitAction = fileMenu->addAction("&Quit");
     quitAction->setShortcut(QKeySequence::Quit);
     connect(quitAction, &QAction::triggered, this, &QWidget::close);
+
+    // View menu
+    auto* viewMenu = menuBar()->addMenu("&View");
+
+    auto* showBoundaries = viewMenu->addAction("Show Tile &Boundaries");
+    showBoundaries->setCheckable(true);
+    connect(showBoundaries, &QAction::toggled, m_mapViewport, &MapViewport::setShowTileBoundaries);
+
+    auto* showTileIds = viewMenu->addAction("Show Tile &IDs");
+    showTileIds->setCheckable(true);
+    connect(showTileIds, &QAction::toggled, m_mapViewport, &MapViewport::setShowTileIds);
+
+    auto* showTileSizes = viewMenu->addAction("Show Tile &Sizes");
+    showTileSizes->setCheckable(true);
+    connect(showTileSizes, &QAction::toggled, m_mapViewport, &MapViewport::setShowTileSizes);
+
+    viewMenu->addSeparator();
+
+    auto* showBoundsBox = viewMenu->addAction("Show B&ounds Box");
+    showBoundsBox->setCheckable(true);
+    connect(showBoundsBox, &QAction::toggled, m_mapViewport, &MapViewport::setShowBounds);
+
+    auto* showCenterPt = viewMenu->addAction("Show &Center Point");
+    showCenterPt->setCheckable(true);
+    connect(showCenterPt, &QAction::toggled, m_mapViewport, &MapViewport::setShowCenter);
 }
 
 void MainWindow::setupCentralWidget()
@@ -144,8 +177,14 @@ void MainWindow::loadMBTiles(const QString& path)
     m_tileProvider = std::move(provider);
     m_mapViewport->setTileProvider(m_tileProvider.get());
 
-    // Set initial view: lowest zoom, centered on center metadata point
+    // Pass bounds and center to viewport for overlay rendering
+    auto boundsOpt = MBTilesMetadataParser::parseBounds(metadata.value("bounds").value_or(""));
     auto centerOpt = MBTilesMetadataParser::parseCenter(metadata.value("center").value_or(""));
+
+    m_mapViewport->setBounds(boundsOpt);
+    m_mapViewport->setCenter(centerOpt);
+
+    // Set initial view: lowest zoom, centered on center metadata point
     if (centerOpt) {
         m_mapViewport->setView(centerOpt->longitude, centerOpt->latitude, minZoom);
     } else {
@@ -153,10 +192,42 @@ void MainWindow::loadMBTiles(const QString& path)
     }
 
     setWindowTitle("TilePeek - " + QFileInfo(path).fileName());
+
+    // Start async tile statistics calculation
+    m_sidebar->setStatsPlaceholder();
+
+    auto* thread = new QThread(this);
+    auto* worker = new TileStatsWorker(path);
+    worker->moveToThread(thread);
+
+    connect(thread, &QThread::started, worker, &TileStatsWorker::calculate);
+    connect(worker, &TileStatsWorker::finished, this, &MainWindow::onStatsReady);
+    connect(worker, &TileStatsWorker::finished, thread, &QThread::quit);
+    connect(thread, &QThread::finished, worker, &QObject::deleteLater);
+    connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+
+    m_statsThread = thread;
+    m_statsThread->start();
+}
+
+void MainWindow::onStatsReady(TileStatistics stats)
+{
+    m_sidebar->setTileStatistics(stats);
+    m_statsThread = nullptr;
+}
+
+void MainWindow::stopStatsThread()
+{
+    if (m_statsThread && m_statsThread->isRunning()) {
+        m_statsThread->quit();
+        m_statsThread->wait(2000);
+    }
+    m_statsThread = nullptr;
 }
 
 void MainWindow::clearCurrentFile()
 {
+    stopStatsThread();
     m_mapViewport->clear();
     m_tileProvider.reset();
     m_sidebar->clear();

@@ -2,9 +2,12 @@
 
 #include "map/TileCache.h"
 #include "map/TileProvider.h"
+#include "mbtiles/MBTilesMetadataParser.h"
 
 #include <QPointF>
 #include <QWidget>
+#include <optional>
+#include <unordered_map>
 
 class MapViewport : public QWidget {
     Q_OBJECT
@@ -14,6 +17,15 @@ public:
     void setTileProvider(TileProvider* provider);
     void setView(double longitude, double latitude, int zoom);
     void clear();
+
+    void setShowTileBoundaries(bool on);
+    void setShowTileIds(bool on);
+    void setShowTileSizes(bool on);
+    void setShowBounds(bool on);
+    void setShowCenter(bool on);
+
+    void setBounds(std::optional<ParsedBounds> bounds);
+    void setCenter(std::optional<ParsedCenter> center);
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -27,9 +39,20 @@ private:
     void transitionZoom(int newZoom);
     QRect visibleTileRange() const;
     QPixmap fetchTile(int zoom, int x, int y);
+    std::optional<int> fetchTileSize(int zoom, int x, int y);
+    QRectF tileScreenRect(int tx, int ty, QPointF viewCenter, double scaledTileSize) const;
+    QPointF geoToScreen(double lon, double lat, QPointF viewCenter) const;
+
+    void drawMissingTile(QPainter& painter, const QRectF& tileRect);
+    void drawTileOverlays(QPainter& painter, const QRect& tiles,
+                          QPointF viewCenter, double scaledTileSize);
+    void drawTileText(QPainter& painter, const QRectF& tileRect, const QStringList& lines);
+    void drawBoundsOverlay(QPainter& painter, QPointF viewCenter);
+    void drawCenterOverlay(QPainter& painter, QPointF viewCenter);
 
     TileProvider* m_provider = nullptr;
     TileCache m_cache;
+    std::unordered_map<TileKey, std::optional<int>, TileKeyHash> m_tileSizeCache;
 
     int m_zoom = 0;
     double m_scale = 1.0;
@@ -37,4 +60,13 @@ private:
 
     bool m_dragging = false;
     QPoint m_lastMousePos;
+
+    bool m_showTileBoundaries = false;
+    bool m_showTileIds = false;
+    bool m_showTileSizes = false;
+    bool m_showBounds = false;
+    bool m_showCenter = false;
+
+    std::optional<ParsedBounds> m_bounds;
+    std::optional<ParsedCenter> m_center;
 };

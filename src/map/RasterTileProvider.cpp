@@ -31,6 +31,15 @@ std::optional<QPixmap> RasterTileProvider::tileAt(int zoom, int x, int y)
     return QPixmap::fromImage(std::move(image));
 }
 
+std::optional<int> RasterTileProvider::tileSizeAt(int zoom, int x, int y)
+{
+    int tmsRow = TileCoords::xyzToTms(zoom, y);
+    auto blob = m_reader->readTileData(zoom, x, tmsRow);
+    if (!blob)
+        return std::nullopt;
+    return static_cast<int>(blob->size());
+}
+
 FormatValidationResult RasterTileProvider::validateFormat()
 {
     if (m_formatHint == "pbf") {

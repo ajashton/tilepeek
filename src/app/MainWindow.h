@@ -6,7 +6,10 @@
 class MapViewport;
 class MetadataSidebar;
 class RasterTileProvider;
+class TileStatsWorker;
 class ToastManager;
+class QThread;
+struct TileStatistics;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -26,9 +29,13 @@ private:
     void onOpenFile();
     void loadMBTiles(const QString& path);
     void clearCurrentFile();
+    void onStatsReady(TileStatistics stats);
+    void stopStatsThread();
 
     MapViewport* m_mapViewport = nullptr;
     MetadataSidebar* m_sidebar = nullptr;
     ToastManager* m_toastManager = nullptr;
     std::unique_ptr<RasterTileProvider> m_tileProvider;
+
+    QThread* m_statsThread = nullptr;
 };

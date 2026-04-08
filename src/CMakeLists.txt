@@ -7,9 +7,11 @@ add_library(tilepeek_lib STATIC
     mbtiles/MBTilesReader.cpp
     mbtiles/MBTilesMetadataParser.cpp
     model/TilesetMetadata.cpp
+    stats/TileStatsWorker.cpp
     widgets/MetadataSidebar.cpp
     widgets/ToastManager.cpp
     widgets/ToastWidget.cpp
+    util/FormatUtils.cpp
     util/TileCoords.cpp
 )
 target_include_directories(tilepeek_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

@@ -29,6 +29,8 @@ public:
     bool open();
     void close();
 
+    QString connectionName() const { return m_connectionName; }
+
     MBTilesValidationResult validateSchema() const;
     QList<std::pair<QString, QString>> readRawMetadata() const;
     std::optional<ZoomRange> queryZoomRange() const;

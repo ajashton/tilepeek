@@ -19,6 +19,7 @@ public:
                        int minZoom, int maxZoom);
 
     std::optional<QPixmap> tileAt(int zoom, int x, int y) override;
+    std::optional<int> tileSizeAt(int zoom, int x, int y) override;
     int minZoom() const override { return m_minZoom; }
     int maxZoom() const override { return m_maxZoom; }
 
