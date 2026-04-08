@@ -49,14 +49,18 @@ _Basic raster MBTiles display_
 
 _Additional tile info_
 
-- Optionally display tile boundaries
-- Optionally display tile Z/X/Y IDs
+- Optionally display tile boundaries (View→Show Tile Boundaries checkbox)
+- Optionally display tile Z/X/Y IDs (View→Show Tile IDs checkbox)
+- Optionally display individual tile sizes in `B`, `KiB`
+  - Round `KiB` values to 1 decimal place
+  - Use `KiB` even for tiles larger than 1MiB - most tiles should not be this large but if they are then the size numbers should look appropriately huge to the user
+- Per-tile textual metadata (tile id, size) should be grouped with 1 metadata item per line, drawn in a monospace font, and aligned to the top-left of each tile
 - Make missing tiles obvious (like a grey/red X through the tile)
-- Optionally display a box for the `bounds` and dot for the `center`
-- Calculate additional metadata
+- Optionally display a box for the `bounds` (dashed line?) and dot for the `center` (view menu checkboxes)
+- Calculate additional metadata to show in the sidebar
   - Number of tiles - total and broken down by zoom level
   - p50, p90, p99 tile data sizes - total and broken down by zoom level
-  - These calculations should run asynchronously to keep the UI responsive on large tilesets
+  - These calculations should run asynchronously to keep the UI responsive on large tilesets - show a light grey italic "calculating..." message in place of the numbers as a placeholder
 
 ## v0.4
 
