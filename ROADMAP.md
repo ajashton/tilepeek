@@ -152,3 +152,8 @@ _Advanced tile stats_
   - Certain metadata would be missing entirely
 - Open more than one tileset at a time?
 - Built-in background reference layers (eg Natural Earth coastlines, Blue Marble / Landsat satellite imagery)
+- Zooming UI/UX
+  - Prettier raster upscaling (eg bilinear)
+  - Display the current zoom level
+  - Provide a way to snap to the nearest integer zoom level
+  - Double-click to zoom in by 1 zoom level (or: zoom in to the next integer zoom level?)
