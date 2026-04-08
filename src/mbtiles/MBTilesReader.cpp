@@ -86,6 +86,19 @@ std::optional<ZoomRange> MBTilesReader::queryZoomRange() const
     return std::nullopt;
 }
 
+std::optional<QByteArray> MBTilesReader::readTileData(int zoom, int column, int row) const
+{
+    QSqlQuery query(m_db);
+    query.prepare(
+        "SELECT tile_data FROM tiles WHERE zoom_level = ? AND tile_column = ? AND tile_row = ?");
+    query.addBindValue(zoom);
+    query.addBindValue(column);
+    query.addBindValue(row);
+    if (query.exec() && query.next())
+        return query.value(0).toByteArray();
+    return std::nullopt;
+}
+
 bool MBTilesReader::tableOrViewExists(const QString& name) const
 {
     QSqlQuery query(m_db);

@@ -32,6 +32,7 @@ public:
     MBTilesValidationResult validateSchema() const;
     QList<std::pair<QString, QString>> readRawMetadata() const;
     std::optional<ZoomRange> queryZoomRange() const;
+    std::optional<QByteArray> readTileData(int zoom, int column, int row) const;
 
 private:
     bool tableOrViewExists(const QString& name) const;

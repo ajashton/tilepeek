@@ -1,5 +1,9 @@
 add_library(tilepeek_lib STATIC
     app/MainWindow.cpp
+    map/MapViewport.cpp
+    map/RasterTileProvider.cpp
+    map/TileCache.cpp
+    map/WebMercator.cpp
     mbtiles/MBTilesReader.cpp
     mbtiles/MBTilesMetadataParser.cpp
     model/TilesetMetadata.cpp

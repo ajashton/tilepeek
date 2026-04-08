@@ -1,4 +1,6 @@
 #include "app/MainWindow.h"
+#include "map/MapViewport.h"
+#include "map/RasterTileProvider.h"
 #include "mbtiles/MBTilesMetadataParser.h"
 #include "mbtiles/MBTilesReader.h"
 #include "widgets/MetadataSidebar.h"
@@ -9,11 +11,9 @@
 #include <QDropEvent>
 #include <QFileDialog>
 #include <QFileInfo>
-#include <QLabel>
 #include <QMenuBar>
 #include <QMimeData>
 #include <QSplitter>
-#include <QVBoxLayout>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -27,6 +27,8 @@ MainWindow::MainWindow(QWidget* parent)
 
     m_toastManager = new ToastManager(this);
 }
+
+MainWindow::~MainWindow() = default;
 
 void MainWindow::setupMenuBar()
 {
@@ -47,18 +49,11 @@ void MainWindow::setupCentralWidget()
 {
     auto* splitter = new QSplitter(Qt::Horizontal, this);
 
-    m_mapPlaceholder = new QWidget(splitter);
-    m_mapPlaceholder->setStyleSheet("background-color: #f0f0f0;");
-    auto* placeholderLabel = new QLabel("Map view will appear here", m_mapPlaceholder);
-    placeholderLabel->setAlignment(Qt::AlignCenter);
-    placeholderLabel->setStyleSheet("color: #999; font-size: 16px;");
-    auto* placeholderLayout = new QVBoxLayout(m_mapPlaceholder);
-    placeholderLayout->addWidget(placeholderLabel);
-
     m_sidebar = new MetadataSidebar(splitter);
+    m_mapViewport = new MapViewport(splitter);
 
     splitter->addWidget(m_sidebar);
-    splitter->addWidget(m_mapPlaceholder);
+    splitter->addWidget(m_mapViewport);
     splitter->setStretchFactor(0, 0);
     splitter->setStretchFactor(1, 1);
     splitter->setSizes({300, 700});
@@ -83,21 +78,21 @@ void MainWindow::loadMBTiles(const QString& path)
 {
     clearCurrentFile();
 
-    MBTilesReader reader(path);
-    if (!reader.open()) {
+    auto reader = std::make_unique<MBTilesReader>(path);
+    if (!reader->open()) {
         m_toastManager->showError("Failed to open file: " + path);
         return;
     }
 
-    auto validation = reader.validateSchema();
+    auto validation = reader->validateSchema();
     for (const auto& error : validation.errors)
         m_toastManager->showError(error);
 
     if (!validation.metadataTableValid || !validation.tilesTableValid)
         return;
 
-    auto rawMetadata = reader.readRawMetadata();
-    auto zoomRange = reader.queryZoomRange();
+    auto rawMetadata = reader->readRawMetadata();
+    auto zoomRange = reader->queryZoomRange();
 
     auto [metadata, messages] = MBTilesMetadataParser::parse(rawMetadata, zoomRange);
 
@@ -110,11 +105,60 @@ void MainWindow::loadMBTiles(const QString& path)
             m_toastManager->showWarning(msg.text);
     }
 
+    // Extract format and zoom range for tile provider
+    auto formatOpt = metadata.value("format");
+    QString format = formatOpt.value_or("png");
+
+    int minZoom = 0;
+    int maxZoom = 0;
+    if (zoomRange) {
+        minZoom = zoomRange->minZoom;
+        maxZoom = zoomRange->maxZoom;
+    }
+    if (auto v = metadata.value("minzoom"))
+        minZoom = v->toInt();
+    if (auto v = metadata.value("maxzoom"))
+        maxZoom = v->toInt();
+
+    // Create tile provider and validate format
+    auto provider = std::make_unique<RasterTileProvider>(
+        std::move(reader), format, minZoom, maxZoom);
+
+    auto formatResult = provider->validateFormat();
+    switch (formatResult.status) {
+    case FormatValidationResult::Status::Unsupported:
+        m_toastManager->showError(formatResult.message);
+        setWindowTitle("TilePeek - " + QFileInfo(path).fileName());
+        return;
+    case FormatValidationResult::Status::UnrecognizedFormat:
+        m_toastManager->showError(formatResult.message);
+        setWindowTitle("TilePeek - " + QFileInfo(path).fileName());
+        return;
+    case FormatValidationResult::Status::FormatMismatch:
+        m_toastManager->showWarning(formatResult.message);
+        break;
+    case FormatValidationResult::Status::Ok:
+        break;
+    }
+
+    m_tileProvider = std::move(provider);
+    m_mapViewport->setTileProvider(m_tileProvider.get());
+
+    // Set initial view: lowest zoom, centered on center metadata point
+    auto centerOpt = MBTilesMetadataParser::parseCenter(metadata.value("center").value_or(""));
+    if (centerOpt) {
+        m_mapViewport->setView(centerOpt->longitude, centerOpt->latitude, minZoom);
+    } else {
+        m_mapViewport->setView(0.0, 0.0, minZoom);
+    }
+
     setWindowTitle("TilePeek - " + QFileInfo(path).fileName());
 }
 
 void MainWindow::clearCurrentFile()
 {
+    m_mapViewport->clear();
+    m_tileProvider.reset();
     m_sidebar->clear();
     m_toastManager->clearAll();
     setWindowTitle("TilePeek");

@@ -196,6 +196,32 @@ private slots:
         MBTilesReader reader("/nonexistent/path/file.mbtiles");
         QVERIFY(!reader.open());
     }
+
+    void readTileData()
+    {
+        auto path = createValidMBTiles("read_tile.mbtiles");
+        QVERIFY(!path.isEmpty());
+
+        MBTilesReader reader(path);
+        QVERIFY(reader.open());
+
+        // The valid test DB has a tile at (0, 0, 0) with data X'89504E47'
+        auto data = reader.readTileData(0, 0, 0);
+        QVERIFY(data.has_value());
+        QCOMPARE(data->toHex(), QByteArray("89504e47"));
+    }
+
+    void readTileData_missing()
+    {
+        auto path = createValidMBTiles("read_tile_missing.mbtiles");
+        QVERIFY(!path.isEmpty());
+
+        MBTilesReader reader(path);
+        QVERIFY(reader.open());
+
+        auto data = reader.readTileData(3, 99, 99);
+        QVERIFY(!data.has_value());
+    }
 };
 
 QTEST_GUILESS_MAIN(TestMBTilesReader)

@@ -1,14 +1,18 @@
 #pragma once
 
 #include <QMainWindow>
+#include <memory>
 
+class MapViewport;
 class MetadataSidebar;
+class RasterTileProvider;
 class ToastManager;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
     explicit MainWindow(QWidget* parent = nullptr);
+    ~MainWindow() override;
 
     void openFile(const QString& path);
 
@@ -23,7 +27,8 @@ private:
     void loadMBTiles(const QString& path);
     void clearCurrentFile();
 
-    QWidget* m_mapPlaceholder = nullptr;
+    MapViewport* m_mapViewport = nullptr;
     MetadataSidebar* m_sidebar = nullptr;
     ToastManager* m_toastManager = nullptr;
+    std::unique_ptr<RasterTileProvider> m_tileProvider;
 };
