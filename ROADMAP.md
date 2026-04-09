@@ -111,19 +111,19 @@ _Basic vector tile rendering_
 
 ## v0.6
 
+_PMTiles support_
+
+- Load metadata and raster or vector tiles from PMTiles according to the spec - see `reference/PMTiles-v3.5.md`
+- Consider vendoring the [official C++ library](https://github.com/protomaps/PMTiles/tree/main/cpp) (or just the parts of it needed for read access)
+
+## v0.7
+
 _Inspect vector tile features_
 
 - Clicking on a point, line, or polygon on the map canvas should reveal that feature's ID and associated properties
 - Exact design TBD
   - Sidebar/panel? Tooltip/popup over map?
   - Need to handle overlapping features
-
-## v0.7
-
-_PMTiles support_
-
-- Load metadata and raster or vector tiles from PMTiles according to the spec - see `reference/PMTiles-v3.5.md`
-- Consider vendoring the [official C++ library](https://github.com/protomaps/PMTiles/tree/main/cpp)
 
 ## v0.8
 
