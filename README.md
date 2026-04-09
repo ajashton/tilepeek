@@ -1,6 +1,21 @@
-# tilepeek - a map tile viewer
+# TilePeek
 
-TilePeek a tool for quickly and easily inspecting map tilesets from local files.
+TilePeek is a desktop application for previewing & inspecting map tilesets from local files. For when you just need a quick peek and don't want to fire up a full session of QGIS, Maputnik, etc.
+
+> [!WARNING]
+> This software is in early stages of development. There is no packaged or supported release yet.
+
+## Feature overview
+
+- Open local tilesets from MBTiles v1 & PMTiles v3 container formats
+- View raster tiles from PNG, JPEG, WebP, and more formats
+  - _full list of supported formats depends on your Qt installation_
+- View & inspect vector tile data in [Mapbox Vector Tile (MVT)](https://github.com/mapbox/vector-tile-spec) v2 format
+  - _future [MapLibre Tile (MLT)](https://maplibre.org/maplibre-tile-spec/) support is likely but not prioritized_
+- View tileset metadata & tile statistics (sizes, counts)
+- Optionally visualize tile boundaries, tile IDs, tileset bounds & center
+- Supports uncompressed and gzip-compressed tile data
+  - _zstd & brotli support coming soon_
 
 ## Prior art / alternatives
 
