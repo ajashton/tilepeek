@@ -199,7 +199,7 @@ void MainWindow::loadMBTiles(const QString& path)
             std::move(reader), minZoom, maxZoom, layerNames);
         vectorProvider->setRenderSize(512);
         m_tileProvider = std::move(vectorProvider);
-        m_mapViewport->setBackgroundColor(QColor("#1a1a2e"));
+        m_mapViewport->setBackgroundColor(QColor("#202122"));
         m_mapViewport->setDisplayTileSize(512);
         populateTileScaleMenu(true);
 
@@ -332,7 +332,7 @@ void MainWindow::loadPMTiles(const QString& path)
             std::move(reader), minZoom, maxZoom, layerNames);
         vectorProvider->setRenderSize(512);
         m_tileProvider = std::move(vectorProvider);
-        m_mapViewport->setBackgroundColor(QColor("#1a1a2e"));
+        m_mapViewport->setBackgroundColor(QColor("#202122"));
         m_mapViewport->setDisplayTileSize(512);
         populateTileScaleMenu(true);
 

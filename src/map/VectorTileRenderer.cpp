@@ -9,7 +9,7 @@ QPixmap VectorTileRenderer::render(const mvt::Tile& tile,
                                     int tileSize)
 {
     QPixmap pixmap(tileSize, tileSize);
-    pixmap.fill(QColor("#1a1a2e"));
+    pixmap.fill(QColor("#000000"));
 
     QPainter painter(&pixmap);
     painter.setRenderHint(QPainter::Antialiasing);
