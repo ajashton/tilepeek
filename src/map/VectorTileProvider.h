@@ -15,6 +15,7 @@ public:
                        const QStringList& layerNames);
 
     std::optional<QPixmap> tileAt(int zoom, int x, int y) override;
+    std::optional<QPixmap> tileAtSize(int zoom, int x, int y, int size) override;
     std::optional<int> tileSizeAt(int zoom, int x, int y) override;
     int minZoom() const override { return m_minZoom; }
     int maxZoom() const override { return m_maxZoom; }

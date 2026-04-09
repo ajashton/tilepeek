@@ -14,6 +14,10 @@ MapViewport::MapViewport(QWidget* parent)
 {
     setMouseTracking(false);
     setFocusPolicy(Qt::StrongFocus);
+
+    m_zoomSettleTimer.setSingleShot(true);
+    m_zoomSettleTimer.setInterval(200);
+    connect(&m_zoomSettleTimer, &QTimer::timeout, this, &MapViewport::onZoomSettled);
 }
 
 void MapViewport::setTileProvider(TileProvider* provider)
@@ -41,7 +45,10 @@ void MapViewport::clear()
 {
     m_provider = nullptr;
     m_cache.clear();
+    m_crispCache.clear();
+    m_crispScale = 0;
     m_tileSizeCache.clear();
+    m_zoomSettleTimer.stop();
     m_zoom = 0;
     m_scale = 1.0;
     m_displayTileSize = 256;
@@ -65,6 +72,8 @@ void MapViewport::setDisplayTileSize(int size) { m_displayTileSize = size; updat
 void MapViewport::clearTileCache()
 {
     m_cache.clear();
+    m_crispCache.clear();
+    m_crispScale = 0;
     m_tileSizeCache.clear();
     update();
 }
@@ -85,10 +94,20 @@ void MapViewport::paintEvent(QPaintEvent* /*event*/)
     QRect tiles = visibleTileRange();
 
     // Pass 1: tile imagery
+    bool hasCrisp = (m_crispScale == m_scale && m_crispScale != 0);
     for (int ty = tiles.top(); ty <= tiles.bottom(); ++ty) {
         for (int tx = tiles.left(); tx <= tiles.right(); ++tx) {
             QRectF tileRect = tileScreenRect(tx, ty, viewCenter, scaledTileSize);
-            QPixmap pixmap = fetchTile(m_zoom, tx, ty);
+
+            // Prefer crisp (scale-matched) pixmap if available
+            TileKey key{m_zoom, tx, ty};
+            QPixmap pixmap;
+            if (hasCrisp) {
+                if (auto crisp = m_crispCache.get(key))
+                    pixmap = *crisp;
+            }
+            if (pixmap.isNull())
+                pixmap = fetchTile(m_zoom, tx, ty);
 
             if (!pixmap.isNull()) {
                 painter.drawPixmap(tileRect, pixmap, pixmap.rect());
@@ -263,6 +282,15 @@ void MapViewport::wheelEvent(QWheelEvent* event)
     m_centerPixel = worldUnderCursor - cursorOffset / (m_scale * displayScale());
     clampViewport();
 
+    // Invalidate crisp cache if scale changed
+    if (m_crispScale != m_scale) {
+        m_crispCache.clear();
+        m_crispScale = 0;
+    }
+
+    // Restart debounce timer for crisp re-render
+    m_zoomSettleTimer.start();
+
     update();
     event->accept();
 }
@@ -300,6 +328,31 @@ void MapViewport::mouseReleaseEvent(QMouseEvent* event)
 
 // --- Internal state ---
 
+void MapViewport::onZoomSettled()
+{
+    if (!m_provider)
+        return;
+
+    int crispSize = static_cast<int>(std::round(m_displayTileSize * m_scale));
+    if (crispSize == m_displayTileSize)
+        return; // at 1.0 scale, base pixmaps are already crisp
+
+    QRect tiles = visibleTileRange();
+    for (int ty = tiles.top(); ty <= tiles.bottom(); ++ty) {
+        for (int tx = tiles.left(); tx <= tiles.right(); ++tx) {
+            TileKey key{m_zoom, tx, ty};
+            if (m_crispCache.get(key))
+                continue; // already have this one
+
+            if (auto pixmap = m_provider->tileAtSize(m_zoom, tx, ty, crispSize))
+                m_crispCache.insert(key, *pixmap);
+        }
+    }
+
+    m_crispScale = m_scale;
+    update();
+}
+
 void MapViewport::clampViewport()
 {
     double maxPixel = static_cast<double>(WebMercator::mapSizePixels(m_zoom));
@@ -318,6 +371,8 @@ void MapViewport::transitionZoom(int newZoom)
     }
     m_zoom = newZoom;
     m_cache.evictOtherZooms(m_zoom);
+    m_crispCache.clear();
+    m_crispScale = 0;
 
     // Evict tile sizes for other zoom levels
     std::erase_if(m_tileSizeCache, [&](const auto& entry) {

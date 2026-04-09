@@ -5,6 +5,7 @@
 #include "mbtiles/MBTilesMetadataParser.h"
 
 #include <QPointF>
+#include <QTimer>
 #include <QWidget>
 #include <optional>
 #include <unordered_map>
@@ -53,6 +54,7 @@ private:
     void drawTileText(QPainter& painter, const QRectF& tileRect, const QStringList& lines);
     void drawBoundsOverlay(QPainter& painter, QPointF viewCenter);
     void drawCenterOverlay(QPainter& painter, QPointF viewCenter);
+    void onZoomSettled();
 
     TileProvider* m_provider = nullptr;
     TileCache m_cache;
@@ -75,4 +77,8 @@ private:
     std::optional<ParsedCenter> m_center;
     QColor m_bgColor;
     int m_displayTileSize = 256;
+
+    QTimer m_zoomSettleTimer;
+    TileCache m_crispCache;
+    double m_crispScale = 0;
 };
