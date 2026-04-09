@@ -345,7 +345,7 @@ void MainWindow::clearCurrentFile()
     disconnect(m_sidebar, &MetadataSidebar::layerVisibilityChanged,
                this, &MainWindow::onLayerVisibilityChanged);
     m_mapViewport->clear();
-    m_mapViewport->setBackgroundColor(QColor("#e0e0e0"));
+    m_mapViewport->setBackgroundColor(palette().color(QPalette::Window));
     m_tileProvider.reset();
     m_sidebar->clear();
     m_toastManager->clearAll();

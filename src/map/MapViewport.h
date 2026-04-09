@@ -73,6 +73,6 @@ private:
 
     std::optional<ParsedBounds> m_bounds;
     std::optional<ParsedCenter> m_center;
-    QColor m_bgColor{"#e0e0e0"};
+    QColor m_bgColor;
     int m_displayTileSize = 256;
 };

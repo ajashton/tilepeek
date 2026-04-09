@@ -10,6 +10,7 @@
 
 MapViewport::MapViewport(QWidget* parent)
     : QWidget(parent)
+    , m_bgColor(palette().color(QPalette::Window))
 {
     setMouseTracking(false);
     setFocusPolicy(Qt::StrongFocus);
