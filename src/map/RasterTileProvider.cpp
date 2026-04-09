@@ -1,14 +1,13 @@
 #include "map/RasterTileProvider.h"
-#include "util/TileCoords.h"
 
 #include <QBuffer>
 #include <QImage>
 #include <QImageReader>
 
-RasterTileProvider::RasterTileProvider(std::unique_ptr<MBTilesReader> reader,
+RasterTileProvider::RasterTileProvider(std::unique_ptr<TileSource> source,
                                        const QString& formatHint,
                                        int minZoom, int maxZoom)
-    : m_reader(std::move(reader))
+    : m_source(std::move(source))
     , m_formatHint(formatHint.toLower())
     , m_minZoom(minZoom)
     , m_maxZoom(maxZoom)
@@ -17,14 +16,12 @@ RasterTileProvider::RasterTileProvider(std::unique_ptr<MBTilesReader> reader,
 
 std::optional<QPixmap> RasterTileProvider::tileAt(int zoom, int x, int y)
 {
-    int tmsRow = TileCoords::xyzToTms(zoom, y);
-    auto blob = m_reader->readTileData(zoom, x, tmsRow);
+    auto blob = m_source->readTile(zoom, x, y);
     if (!blob)
         return std::nullopt;
 
     QImage image;
     if (!image.loadFromData(*blob, m_formatHint.toLatin1().constData())) {
-        // Format hint didn't work — try auto-detection
         if (!image.loadFromData(*blob))
             return std::nullopt;
     }
@@ -33,20 +30,18 @@ std::optional<QPixmap> RasterTileProvider::tileAt(int zoom, int x, int y)
 
 std::optional<int> RasterTileProvider::tileSizeAt(int zoom, int x, int y)
 {
-    int tmsRow = TileCoords::xyzToTms(zoom, y);
-    auto blob = m_reader->readTileData(zoom, x, tmsRow);
-    if (!blob)
-        return std::nullopt;
-    return static_cast<int>(blob->size());
+    return m_source->tileSize(zoom, x, y);
 }
 
 int RasterTileProvider::detectNativeTileSize() const
 {
-    auto zoomRange = m_reader->queryZoomRange();
-    if (!zoomRange)
-        return 256;
-
-    auto blob = m_reader->readTileData(zoomRange->minZoom, 0, 0);
+    // Try a few tile coordinates at minZoom to find a sample tile
+    auto blob = m_source->readTile(m_minZoom, 0, 0);
+    if (!blob) {
+        // Try center tile
+        int maxTile = (1 << m_minZoom) / 2;
+        blob = m_source->readTile(m_minZoom, maxTile, maxTile);
+    }
     if (!blob)
         return 256;
 
@@ -82,13 +77,7 @@ FormatValidationResult RasterTileProvider::validateFormat()
     }
 
     // Try to read a sample tile to validate format matches data
-    auto zoomRange = m_reader->queryZoomRange();
-    if (!zoomRange)
-        return {FormatValidationResult::Status::Ok, {}};
-
-    // Find the first available tile at minZoom
-    // Try tile (0,0) at minZoom — if missing, the format check is inconclusive but OK
-    auto blob = m_reader->readTileData(zoomRange->minZoom, 0, 0);
+    auto blob = m_source->readTile(m_minZoom, 0, 0);
     if (!blob)
         return {FormatValidationResult::Status::Ok, {}};
 

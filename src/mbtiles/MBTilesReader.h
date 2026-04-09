@@ -1,5 +1,7 @@
 #pragma once
 
+#include "map/TileSource.h"
+
 #include <QList>
 #include <QSqlDatabase>
 #include <QString>
@@ -18,7 +20,7 @@ struct ZoomRange {
     int maxZoom;
 };
 
-class MBTilesReader {
+class MBTilesReader : public TileSource {
 public:
     explicit MBTilesReader(const QString& filePath);
     ~MBTilesReader();
@@ -35,6 +37,9 @@ public:
     QList<std::pair<QString, QString>> readRawMetadata() const;
     std::optional<ZoomRange> queryZoomRange() const;
     std::optional<QByteArray> readTileData(int zoom, int column, int row) const;
+
+    // TileSource interface (XYZ coordinates, handles TMS conversion internally)
+    std::optional<QByteArray> readTile(int zoom, int x, int y) override;
 
 private:
     bool tableOrViewExists(const QString& name) const;

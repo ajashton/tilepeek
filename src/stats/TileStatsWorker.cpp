@@ -1,10 +1,13 @@
 #include "stats/TileStatsWorker.h"
 #include "mbtiles/MBTilesReader.h"
+#include "pmtiles/PMTilesReader.h"
+#include "util/GzipUtils.h"
 
 #include <QSqlQuery>
 #include <algorithm>
 #include <cmath>
 #include <vector>
+#include <pmtiles.hpp>
 
 static int64_t percentile(const std::vector<int64_t>& sorted, double p)
 {
@@ -35,19 +38,24 @@ void TileStatsWorker::calculate()
 {
     TileStatistics result;
 
-    MBTilesReader reader(m_filePath);
-    if (!reader.open()) {
-        emit finished(result);
-        return;
-    }
+    if (m_filePath.endsWith(".pmtiles", Qt::CaseInsensitive))
+        calculatePMTiles(result);
+    else
+        calculateMBTiles(result);
 
-    // Query sizes ordered by zoom level and size for efficient processing
+    emit finished(result);
+}
+
+void TileStatsWorker::calculateMBTiles(TileStatistics& result)
+{
+    MBTilesReader reader(m_filePath);
+    if (!reader.open())
+        return;
+
     QSqlQuery query(QSqlDatabase::database(reader.connectionName()));
     if (!query.exec("SELECT zoom_level, LENGTH(tile_data) FROM tiles "
-                    "ORDER BY zoom_level, LENGTH(tile_data)")) {
-        emit finished(result);
+                    "ORDER BY zoom_level, LENGTH(tile_data)"))
         return;
-    }
 
     QMap<int, std::vector<int64_t>> perZoomSizes;
     std::vector<int64_t> allSizes;
@@ -59,13 +67,64 @@ void TileStatsWorker::calculate()
         allSizes.push_back(size);
     }
 
-    // Per-zoom stats (already sorted due to ORDER BY)
     for (auto it = perZoomSizes.constBegin(); it != perZoomSizes.constEnd(); ++it)
         result.perZoom[it.key()] = computeStats(it.value());
 
-    // Total stats (need to sort the combined vector)
     std::ranges::sort(allSizes);
     result.total = computeStats(allSizes);
+}
 
-    emit finished(result);
+void TileStatsWorker::calculatePMTiles(TileStatistics& result)
+{
+    PMTilesReader reader(m_filePath);
+    if (!reader.open())
+        return;
+
+    auto decompress = [](const std::string& data, uint8_t compression) -> std::string {
+        if (compression == pmtiles::COMPRESSION_NONE
+            || compression == pmtiles::COMPRESSION_UNKNOWN)
+            return data;
+        if (compression == pmtiles::COMPRESSION_GZIP) {
+            QByteArray input(data.data(), static_cast<int>(data.size()));
+            auto out = GzipUtils::decompress(input);
+            if (!out)
+                throw std::runtime_error("gzip decompression failed");
+            return std::string(out->data(), out->size());
+        }
+        throw std::runtime_error("unsupported compression");
+    };
+
+    // Memory-mapped data is available through the reader's internal state,
+    // but we need raw access for entries_tms. Open the file directly.
+    QFile file(m_filePath);
+    if (!file.open(QIODevice::ReadOnly))
+        return;
+    auto* mapped = file.map(0, file.size());
+    if (!mapped)
+        return;
+    auto* pmtilesMap = reinterpret_cast<const char*>(mapped);
+
+    try {
+        auto entries = pmtiles::entries_tms(decompress, pmtilesMap);
+
+        QMap<int, std::vector<int64_t>> perZoomSizes;
+        std::vector<int64_t> allSizes;
+
+        for (const auto& entry : entries) {
+            int zoom = entry.z;
+            int64_t size = entry.length;
+            perZoomSizes[zoom].push_back(size);
+            allSizes.push_back(size);
+        }
+
+        for (auto it = perZoomSizes.begin(); it != perZoomSizes.end(); ++it) {
+            std::ranges::sort(it.value());
+            result.perZoom[it.key()] = computeStats(it.value());
+        }
+
+        std::ranges::sort(allSizes);
+        result.total = computeStats(allSizes);
+    } catch (const std::exception&) {
+        // Stats calculation failed — return empty result
+    }
 }

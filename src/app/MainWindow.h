@@ -31,6 +31,7 @@ private:
     void setupCentralWidget();
     void onOpenFile();
     void loadMBTiles(const QString& path);
+    void loadPMTiles(const QString& path);
     void clearCurrentFile();
     void onStatsReady(TileStatistics stats);
     void onLayerVisibilityChanged(const QSet<QString>& hiddenLayers);

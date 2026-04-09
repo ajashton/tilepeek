@@ -1,7 +1,7 @@
 #pragma once
 
 #include "map/TileProvider.h"
-#include "mbtiles/MBTilesReader.h"
+#include "map/TileSource.h"
 
 #include <QString>
 #include <memory>
@@ -14,7 +14,7 @@ struct FormatValidationResult {
 
 class RasterTileProvider : public TileProvider {
 public:
-    RasterTileProvider(std::unique_ptr<MBTilesReader> reader,
+    RasterTileProvider(std::unique_ptr<TileSource> source,
                        const QString& formatHint,
                        int minZoom, int maxZoom);
 
@@ -27,7 +27,7 @@ public:
     int detectNativeTileSize() const;
 
 private:
-    std::unique_ptr<MBTilesReader> m_reader;
+    std::unique_ptr<TileSource> m_source;
     QString m_formatHint;
     int m_minZoom;
     int m_maxZoom;

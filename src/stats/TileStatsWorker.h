@@ -17,5 +17,8 @@ signals:
     void finished(TileStatistics stats);
 
 private:
+    void calculateMBTiles(TileStatistics& result);
+    void calculatePMTiles(TileStatistics& result);
+
     QString m_filePath;
 };

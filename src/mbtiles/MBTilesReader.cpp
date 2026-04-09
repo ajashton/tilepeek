@@ -1,4 +1,5 @@
 #include "mbtiles/MBTilesReader.h"
+#include "util/TileCoords.h"
 
 #include <QMap>
 #include <QSqlError>
@@ -97,6 +98,12 @@ std::optional<QByteArray> MBTilesReader::readTileData(int zoom, int column, int 
     if (query.exec() && query.next())
         return query.value(0).toByteArray();
     return std::nullopt;
+}
+
+std::optional<QByteArray> MBTilesReader::readTile(int zoom, int x, int y)
+{
+    int tmsRow = TileCoords::xyzToTms(zoom, y);
+    return readTileData(zoom, x, tmsRow);
 }
 
 bool MBTilesReader::tableOrViewExists(const QString& name) const

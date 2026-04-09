@@ -6,6 +6,8 @@
 #include "mbtiles/MBTilesReader.h"
 #include "mbtiles/VectorMetadataParser.h"
 #include "model/TileStatistics.h"
+#include "pmtiles/PMTilesMetadataParser.h"
+#include "pmtiles/PMTilesReader.h"
 #include "stats/TileStatsWorker.h"
 #include "widgets/MetadataSidebar.h"
 #include "widgets/ToastManager.h"
@@ -108,14 +110,18 @@ void MainWindow::setupCentralWidget()
 void MainWindow::onOpenFile()
 {
     QString path = QFileDialog::getOpenFileName(
-        this, "Open MBTiles File", QString(), "MBTiles Files (*.mbtiles);;All Files (*)");
+        this, "Open Tile Archive", QString(),
+        "Tile Archives (*.mbtiles *.pmtiles);;MBTiles Files (*.mbtiles);;PMTiles Files (*.pmtiles);;All Files (*)");
     if (!path.isEmpty())
         openFile(path);
 }
 
 void MainWindow::openFile(const QString& path)
 {
-    loadMBTiles(path);
+    if (path.endsWith(".pmtiles", Qt::CaseInsensitive))
+        loadPMTiles(path);
+    else
+        loadMBTiles(path);
 }
 
 void MainWindow::loadMBTiles(const QString& path)
@@ -261,6 +267,118 @@ void MainWindow::loadMBTiles(const QString& path)
     m_statsThread->start();
 }
 
+void MainWindow::loadPMTiles(const QString& path)
+{
+    clearCurrentFile();
+
+    auto reader = std::make_unique<PMTilesReader>(path);
+    if (!reader->open()) {
+        m_toastManager->showError("Failed to open file: " + path);
+        return;
+    }
+
+    auto validation = reader->validate();
+    for (const auto& error : validation.errors)
+        m_toastManager->showError(error);
+    if (!validation.valid)
+        return;
+
+    const auto& header = reader->header();
+    auto jsonMeta = reader->readJsonMetadata();
+    auto [metadata, messages] = PMTilesMetadataParser::parse(header, jsonMeta);
+
+    for (const auto& msg : messages) {
+        if (msg.level == ValidationMessage::Level::Error)
+            m_toastManager->showError(msg.text);
+        else
+            m_toastManager->showWarning(msg.text);
+    }
+
+    QString format = PMTilesMetadataParser::tileTypeToFormat(header.tile_type);
+    int minZoom = header.min_zoom;
+    int maxZoom = header.max_zoom;
+
+    if (format == "pbf") {
+        // Vector tile path
+        QStringList layerNames;
+        auto jsonStr = metadata.value("json");
+        if (!jsonStr) {
+            if (!jsonMeta.isEmpty())
+                m_toastManager->showWarning("No vector_layers found in PMTiles metadata");
+            m_sidebar->setMetadata(metadata);
+        } else {
+            auto vResult = VectorMetadataParser::parse(*jsonStr);
+            for (const auto& vmsg : vResult.messages) {
+                if (vmsg.level == ValidationMessage::Level::Error)
+                    m_toastManager->showError(vmsg.text);
+                else
+                    m_toastManager->showWarning(vmsg.text);
+            }
+            if (vResult.metadata) {
+                m_sidebar->setVectorMetadata(metadata, *vResult.metadata);
+                for (const auto& layer : vResult.metadata->vectorLayers)
+                    layerNames << layer.id;
+            } else {
+                m_sidebar->setMetadata(metadata);
+            }
+        }
+
+        auto vectorProvider = std::make_unique<VectorTileProvider>(
+            std::move(reader), minZoom, maxZoom, layerNames);
+        vectorProvider->setRenderSize(512);
+        m_tileProvider = std::move(vectorProvider);
+        m_mapViewport->setBackgroundColor(QColor("#1a1a2e"));
+        m_mapViewport->setDisplayTileSize(512);
+        populateTileScaleMenu(true);
+
+        connect(m_sidebar, &MetadataSidebar::layerVisibilityChanged,
+                this, &MainWindow::onLayerVisibilityChanged);
+    } else {
+        // Raster tile path
+        auto provider = std::make_unique<RasterTileProvider>(
+            std::move(reader), format, minZoom, maxZoom);
+
+        m_sidebar->setMetadata(metadata);
+        m_nativeTileSize = provider->detectNativeTileSize();
+        m_mapViewport->setDisplayTileSize(m_nativeTileSize);
+        m_tileProvider = std::move(provider);
+        populateTileScaleMenu(false);
+    }
+
+    m_mapViewport->setTileProvider(m_tileProvider.get());
+
+    // Pass bounds and center to viewport
+    auto boundsOpt = MBTilesMetadataParser::parseBounds(metadata.value("bounds").value_or(""));
+    auto centerOpt = MBTilesMetadataParser::parseCenter(metadata.value("center").value_or(""));
+
+    m_mapViewport->setBounds(boundsOpt);
+    m_mapViewport->setCenter(centerOpt);
+
+    if (centerOpt) {
+        m_mapViewport->setView(centerOpt->longitude, centerOpt->latitude, minZoom);
+    } else {
+        m_mapViewport->setView(0.0, 0.0, minZoom);
+    }
+
+    setWindowTitle("TilePeek - " + QFileInfo(path).fileName());
+
+    // Start async tile statistics
+    m_sidebar->setStatsPlaceholder();
+
+    auto* thread = new QThread(this);
+    auto* worker = new TileStatsWorker(path);
+    worker->moveToThread(thread);
+
+    connect(thread, &QThread::started, worker, &TileStatsWorker::calculate);
+    connect(worker, &TileStatsWorker::finished, this, &MainWindow::onStatsReady);
+    connect(worker, &TileStatsWorker::finished, thread, &QThread::quit);
+    connect(thread, &QThread::finished, worker, &QObject::deleteLater);
+    connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+
+    m_statsThread = thread;
+    m_statsThread->start();
+}
+
 void MainWindow::onStatsReady(TileStatistics stats)
 {
     m_sidebar->setTileStatistics(stats);
@@ -362,10 +480,13 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* event)
 {
     if (event->mimeData()->hasUrls()) {
         for (const auto& url : event->mimeData()->urls()) {
-            if (url.isLocalFile()
-                && url.toLocalFile().endsWith(".mbtiles", Qt::CaseInsensitive)) {
-                event->acceptProposedAction();
-                return;
+            if (url.isLocalFile()) {
+                auto file = url.toLocalFile();
+                if (file.endsWith(".mbtiles", Qt::CaseInsensitive)
+                    || file.endsWith(".pmtiles", Qt::CaseInsensitive)) {
+                    event->acceptProposedAction();
+                    return;
+                }
             }
         }
     }
@@ -374,9 +495,13 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* event)
 void MainWindow::dropEvent(QDropEvent* event)
 {
     for (const auto& url : event->mimeData()->urls()) {
-        if (url.isLocalFile() && url.toLocalFile().endsWith(".mbtiles", Qt::CaseInsensitive)) {
-            openFile(url.toLocalFile());
-            return;
+        if (url.isLocalFile()) {
+            auto file = url.toLocalFile();
+            if (file.endsWith(".mbtiles", Qt::CaseInsensitive)
+                || file.endsWith(".pmtiles", Qt::CaseInsensitive)) {
+                openFile(file);
+                return;
+            }
         }
     }
 }

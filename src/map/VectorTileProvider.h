@@ -1,8 +1,7 @@
 #pragma once
 
 #include "map/TileProvider.h"
-#include "mbtiles/MBTilesReader.h"
-#include "mvt/MvtTypes.h"
+#include "map/TileSource.h"
 
 #include <QColor>
 #include <QSet>
@@ -12,7 +11,7 @@
 
 class VectorTileProvider : public TileProvider {
 public:
-    VectorTileProvider(std::unique_ptr<MBTilesReader> reader, int minZoom, int maxZoom,
+    VectorTileProvider(std::unique_ptr<TileSource> source, int minZoom, int maxZoom,
                        const QStringList& layerNames);
 
     std::optional<QPixmap> tileAt(int zoom, int x, int y) override;
@@ -24,7 +23,7 @@ public:
     void setRenderSize(int size);
 
 private:
-    std::unique_ptr<MBTilesReader> m_reader;
+    std::unique_ptr<TileSource> m_source;
     int m_minZoom;
     int m_maxZoom;
     std::unordered_map<std::string, QColor> m_layerColors;

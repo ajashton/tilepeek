@@ -3,12 +3,11 @@
 #include "mvt/MvtDecoder.h"
 #include "util/CetColormap.h"
 #include "util/GzipUtils.h"
-#include "util/TileCoords.h"
 
-VectorTileProvider::VectorTileProvider(std::unique_ptr<MBTilesReader> reader,
+VectorTileProvider::VectorTileProvider(std::unique_ptr<TileSource> source,
                                        int minZoom, int maxZoom,
                                        const QStringList& layerNames)
-    : m_reader(std::move(reader))
+    : m_source(std::move(source))
     , m_minZoom(minZoom)
     , m_maxZoom(maxZoom)
 {
@@ -19,8 +18,7 @@ VectorTileProvider::VectorTileProvider(std::unique_ptr<MBTilesReader> reader,
 
 std::optional<QPixmap> VectorTileProvider::tileAt(int zoom, int x, int y)
 {
-    int tmsRow = TileCoords::xyzToTms(zoom, y);
-    auto blob = m_reader->readTileData(zoom, x, tmsRow);
+    auto blob = m_source->readTile(zoom, x, y);
     if (!blob)
         return std::nullopt;
 
@@ -41,11 +39,7 @@ std::optional<QPixmap> VectorTileProvider::tileAt(int zoom, int x, int y)
 
 std::optional<int> VectorTileProvider::tileSizeAt(int zoom, int x, int y)
 {
-    int tmsRow = TileCoords::xyzToTms(zoom, y);
-    auto blob = m_reader->readTileData(zoom, x, tmsRow);
-    if (!blob)
-        return std::nullopt;
-    return static_cast<int>(blob->size());
+    return m_source->tileSize(zoom, x, y);
 }
 
 void VectorTileProvider::setHiddenLayers(const QSet<QString>& hidden)
