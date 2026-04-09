@@ -1,3 +1,8 @@
+/* Copied from https://github.com/protomaps/PMTiles/
+ * © 2021 and later, Protomaps LLC and contributors
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #ifndef PMTILES_HPP
 #define PMTILES_HPP
 
