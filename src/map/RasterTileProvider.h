@@ -24,6 +24,7 @@ public:
     int maxZoom() const override { return m_maxZoom; }
 
     FormatValidationResult validateFormat();
+    int detectNativeTileSize() const;
 
 private:
     std::unique_ptr<MBTilesReader> m_reader;

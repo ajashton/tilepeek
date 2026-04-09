@@ -11,6 +11,7 @@
 #include "widgets/ToastManager.h"
 
 #include <QAction>
+#include <QActionGroup>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QFileDialog>
@@ -78,6 +79,14 @@ void MainWindow::setupMenuBar()
     auto* showCenterPt = viewMenu->addAction("Show &Center Point");
     showCenterPt->setCheckable(true);
     connect(showCenterPt, &QAction::toggled, m_mapViewport, &MapViewport::setShowCenter);
+
+    viewMenu->addSeparator();
+
+    m_tileScaleMenu = viewMenu->addMenu("Tile &Scale");
+    m_tileScaleMenu->setEnabled(false);
+    m_tileScaleGroup = new QActionGroup(this);
+    m_tileScaleGroup->setExclusive(true);
+    connect(m_tileScaleGroup, &QActionGroup::triggered, this, &MainWindow::onTileScaleChanged);
 }
 
 void MainWindow::setupCentralWidget()
@@ -177,9 +186,13 @@ void MainWindow::loadMBTiles(const QString& path)
             }
         }
 
-        m_tileProvider = std::make_unique<VectorTileProvider>(
+        auto vectorProvider = std::make_unique<VectorTileProvider>(
             std::move(reader), minZoom, maxZoom, layerNames);
+        vectorProvider->setRenderSize(512);
+        m_tileProvider = std::move(vectorProvider);
         m_mapViewport->setBackgroundColor(QColor("#1a1a2e"));
+        m_mapViewport->setDisplayTileSize(512);
+        populateTileScaleMenu(true);
 
         connect(m_sidebar, &MetadataSidebar::layerVisibilityChanged,
                 this, &MainWindow::onLayerVisibilityChanged);
@@ -208,7 +221,10 @@ void MainWindow::loadMBTiles(const QString& path)
         }
 
         m_sidebar->setMetadata(metadata);
+        m_nativeTileSize = provider->detectNativeTileSize();
+        m_mapViewport->setDisplayTileSize(m_nativeTileSize);
         m_tileProvider = std::move(provider);
+        populateTileScaleMenu(false);
     }
 
     m_mapViewport->setTileProvider(m_tileProvider.get());
@@ -259,6 +275,61 @@ void MainWindow::onLayerVisibilityChanged(const QSet<QString>& hiddenLayers)
     }
 }
 
+void MainWindow::populateTileScaleMenu(bool isVector)
+{
+    // Clear existing actions
+    for (auto* action : m_tileScaleGroup->actions())
+        m_tileScaleGroup->removeAction(action);
+    m_tileScaleMenu->clear();
+
+    m_isVectorFormat = isVector;
+
+    if (isVector) {
+        struct Preset { const char* label; int size; };
+        constexpr Preset presets[] = {{"256px", 256}, {"512px", 512}, {"1024px", 1024}};
+        for (auto [label, size] : presets) {
+            auto* action = m_tileScaleMenu->addAction(label);
+            action->setCheckable(true);
+            action->setData(size);
+            m_tileScaleGroup->addAction(action);
+            if (size == 512)
+                action->setChecked(true);
+        }
+    } else {
+        struct Preset { const char* label; int factor; };
+        constexpr Preset presets[] = {
+            {"1\xc3\x97 (Native)", 1}, {"2\xc3\x97", 2}, {"3\xc3\x97", 3}};
+        for (auto [label, factor] : presets) {
+            auto* action = m_tileScaleMenu->addAction(label);
+            action->setCheckable(true);
+            action->setData(factor);
+            m_tileScaleGroup->addAction(action);
+            if (factor == 1)
+                action->setChecked(true);
+        }
+    }
+
+    m_tileScaleMenu->setEnabled(true);
+}
+
+void MainWindow::onTileScaleChanged(QAction* action)
+{
+    int displayTileSize;
+
+    if (m_isVectorFormat) {
+        displayTileSize = action->data().toInt();
+        if (auto* vtp = dynamic_cast<VectorTileProvider*>(m_tileProvider.get())) {
+            vtp->setRenderSize(displayTileSize);
+            m_mapViewport->clearTileCache();
+        }
+    } else {
+        int scaleFactor = action->data().toInt();
+        displayTileSize = m_nativeTileSize / scaleFactor;
+    }
+
+    m_mapViewport->setDisplayTileSize(displayTileSize);
+}
+
 void MainWindow::stopStatsThread()
 {
     if (m_statsThread && m_statsThread->isRunning()) {
@@ -278,6 +349,12 @@ void MainWindow::clearCurrentFile()
     m_tileProvider.reset();
     m_sidebar->clear();
     m_toastManager->clearAll();
+    m_tileScaleMenu->setEnabled(false);
+    for (auto* action : m_tileScaleGroup->actions())
+        m_tileScaleGroup->removeAction(action);
+    m_tileScaleMenu->clear();
+    m_nativeTileSize = 256;
+    m_isVectorFormat = false;
     setWindowTitle("TilePeek");
 }
 

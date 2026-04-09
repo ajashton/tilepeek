@@ -27,6 +27,7 @@ public:
     void setBounds(std::optional<ParsedBounds> bounds);
     void setCenter(std::optional<ParsedCenter> center);
     void setBackgroundColor(const QColor& color);
+    void setDisplayTileSize(int size);
     void clearTileCache();
 
 protected:
@@ -39,6 +40,7 @@ protected:
 private:
     void clampViewport();
     void transitionZoom(int newZoom);
+    double displayScale() const { return m_displayTileSize / 256.0; }
     QRect visibleTileRange() const;
     QPixmap fetchTile(int zoom, int x, int y);
     std::optional<int> fetchTileSize(int zoom, int x, int y);
@@ -72,4 +74,5 @@ private:
     std::optional<ParsedBounds> m_bounds;
     std::optional<ParsedCenter> m_center;
     QColor m_bgColor{"#e0e0e0"};
+    int m_displayTileSize = 256;
 };

@@ -40,6 +40,25 @@ std::optional<int> RasterTileProvider::tileSizeAt(int zoom, int x, int y)
     return static_cast<int>(blob->size());
 }
 
+int RasterTileProvider::detectNativeTileSize() const
+{
+    auto zoomRange = m_reader->queryZoomRange();
+    if (!zoomRange)
+        return 256;
+
+    auto blob = m_reader->readTileData(zoomRange->minZoom, 0, 0);
+    if (!blob)
+        return 256;
+
+    QImage image;
+    if (image.loadFromData(*blob, m_formatHint.toLatin1().constData()))
+        return image.width();
+    if (image.loadFromData(*blob))
+        return image.width();
+
+    return 256;
+}
+
 FormatValidationResult RasterTileProvider::validateFormat()
 {
     if (m_formatHint == "pbf") {

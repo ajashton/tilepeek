@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QMainWindow>
+#include <QSet>
 #include <memory>
 
 class MapViewport;
@@ -8,6 +9,8 @@ class MetadataSidebar;
 class TileProvider;
 class TileStatsWorker;
 class ToastManager;
+class QActionGroup;
+class QMenu;
 class QThread;
 struct TileStatistics;
 
@@ -31,6 +34,8 @@ private:
     void clearCurrentFile();
     void onStatsReady(TileStatistics stats);
     void onLayerVisibilityChanged(const QSet<QString>& hiddenLayers);
+    void onTileScaleChanged(QAction* action);
+    void populateTileScaleMenu(bool isVector);
     void stopStatsThread();
 
     MapViewport* m_mapViewport = nullptr;
@@ -39,4 +44,9 @@ private:
     std::unique_ptr<TileProvider> m_tileProvider;
 
     QThread* m_statsThread = nullptr;
+
+    QMenu* m_tileScaleMenu = nullptr;
+    QActionGroup* m_tileScaleGroup = nullptr;
+    int m_nativeTileSize = 256;
+    bool m_isVectorFormat = false;
 };

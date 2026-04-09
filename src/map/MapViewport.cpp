@@ -43,6 +43,7 @@ void MapViewport::clear()
     m_tileSizeCache.clear();
     m_zoom = 0;
     m_scale = 1.0;
+    m_displayTileSize = 256;
     m_centerPixel = QPointF();
     m_bounds.reset();
     m_center.reset();
@@ -58,6 +59,7 @@ void MapViewport::setShowCenter(bool on) { m_showCenter = on; update(); }
 void MapViewport::setBounds(std::optional<ParsedBounds> bounds) { m_bounds = bounds; update(); }
 void MapViewport::setCenter(std::optional<ParsedCenter> center) { m_center = center; update(); }
 void MapViewport::setBackgroundColor(const QColor& color) { m_bgColor = color; update(); }
+void MapViewport::setDisplayTileSize(int size) { m_displayTileSize = size; update(); }
 
 void MapViewport::clearTileCache()
 {
@@ -76,7 +78,7 @@ void MapViewport::paintEvent(QPaintEvent* /*event*/)
     if (!m_provider)
         return;
 
-    double scaledTileSize = WebMercator::TileSize * m_scale;
+    double scaledTileSize = m_displayTileSize * m_scale;
     QPointF viewCenter(width() / 2.0, height() / 2.0);
     QRect tiles = visibleTileRange();
 
@@ -211,7 +213,7 @@ void MapViewport::drawCenterOverlay(QPainter& painter, QPointF viewCenter)
 QRectF MapViewport::tileScreenRect(int tx, int ty, QPointF viewCenter, double scaledTileSize) const
 {
     QPointF worldPixel(tx * WebMercator::TileSize, ty * WebMercator::TileSize);
-    QPointF offset = (worldPixel - m_centerPixel) * m_scale;
+    QPointF offset = (worldPixel - m_centerPixel) * m_scale * displayScale();
     return QRectF(viewCenter + offset, QSizeF(scaledTileSize, scaledTileSize));
 }
 
@@ -219,7 +221,7 @@ QPointF MapViewport::geoToScreen(double lon, double lat, QPointF viewCenter) con
 {
     double wx = WebMercator::lonToPixelX(lon, m_zoom);
     double wy = WebMercator::latToPixelY(lat, m_zoom);
-    return viewCenter + (QPointF(wx, wy) - m_centerPixel) * m_scale;
+    return viewCenter + (QPointF(wx, wy) - m_centerPixel) * m_scale * displayScale();
 }
 
 // --- Input handling ---
@@ -266,7 +268,7 @@ void MapViewport::mouseMoveEvent(QMouseEvent* event)
 {
     if (m_dragging) {
         QPoint delta = event->pos() - m_lastMousePos;
-        m_centerPixel -= QPointF(delta) / m_scale;
+        m_centerPixel -= QPointF(delta) / (m_scale * displayScale());
         m_lastMousePos = event->pos();
         clampViewport();
         update();
@@ -312,8 +314,9 @@ void MapViewport::transitionZoom(int newZoom)
 
 QRect MapViewport::visibleTileRange() const
 {
-    double halfViewW = (width() / 2.0) / m_scale;
-    double halfViewH = (height() / 2.0) / m_scale;
+    double ds = displayScale();
+    double halfViewW = (width() / 2.0) / (m_scale * ds);
+    double halfViewH = (height() / 2.0) / (m_scale * ds);
 
     double minPx = m_centerPixel.x() - halfViewW;
     double maxPx = m_centerPixel.x() + halfViewW;

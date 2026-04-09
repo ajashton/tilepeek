@@ -36,7 +36,7 @@ std::optional<QPixmap> VectorTileProvider::tileAt(int zoom, int x, int y)
     if (!result.tile)
         return std::nullopt;
 
-    return VectorTileRenderer::render(*result.tile, m_layerColors, m_hiddenLayers);
+    return VectorTileRenderer::render(*result.tile, m_layerColors, m_hiddenLayers, m_renderSize);
 }
 
 std::optional<int> VectorTileProvider::tileSizeAt(int zoom, int x, int y)
@@ -51,4 +51,9 @@ std::optional<int> VectorTileProvider::tileSizeAt(int zoom, int x, int y)
 void VectorTileProvider::setHiddenLayers(const QSet<QString>& hidden)
 {
     m_hiddenLayers = hidden;
+}
+
+void VectorTileProvider::setRenderSize(int size)
+{
+    m_renderSize = size;
 }

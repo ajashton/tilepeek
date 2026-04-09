@@ -21,6 +21,7 @@ public:
     int maxZoom() const override { return m_maxZoom; }
 
     void setHiddenLayers(const QSet<QString>& hidden);
+    void setRenderSize(int size);
 
 private:
     std::unique_ptr<MBTilesReader> m_reader;
@@ -28,4 +29,5 @@ private:
     int m_maxZoom;
     std::unordered_map<std::string, QColor> m_layerColors;
     QSet<QString> m_hiddenLayers;
+    int m_renderSize = 256;
 };
