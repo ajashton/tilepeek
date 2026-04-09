@@ -20,6 +20,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMenuBar>
+#include <QSettings>
 #include <QMimeData>
 #include <QSplitter>
 #include <QThread>
@@ -61,27 +62,33 @@ void MainWindow::setupMenuBar()
     // View menu
     auto* viewMenu = menuBar()->addMenu("&View");
 
-    auto* showBoundaries = viewMenu->addAction("Show Tile &Boundaries");
-    showBoundaries->setCheckable(true);
-    connect(showBoundaries, &QAction::toggled, m_mapViewport, &MapViewport::setShowTileBoundaries);
+    QSettings settings;
 
-    auto* showTileIds = viewMenu->addAction("Show Tile &IDs");
-    showTileIds->setCheckable(true);
-    connect(showTileIds, &QAction::toggled, m_mapViewport, &MapViewport::setShowTileIds);
+    auto addViewToggle = [&](const QString& label, const QString& key,
+                             void (MapViewport::*setter)(bool)) {
+        auto* action = viewMenu->addAction(label);
+        action->setCheckable(true);
+        connect(action, &QAction::toggled, m_mapViewport, setter);
+        connect(action, &QAction::toggled, this, [key](bool on) {
+            QSettings().setValue(key, on);
+        });
+        action->setChecked(settings.value(key, false).toBool());
+        return action;
+    };
 
-    auto* showTileSizes = viewMenu->addAction("Show Tile &Sizes");
-    showTileSizes->setCheckable(true);
-    connect(showTileSizes, &QAction::toggled, m_mapViewport, &MapViewport::setShowTileSizes);
+    addViewToggle("Show Tile &Boundaries", "view/showTileBoundaries",
+                  &MapViewport::setShowTileBoundaries);
+    addViewToggle("Show Tile &IDs", "view/showTileIds",
+                  &MapViewport::setShowTileIds);
+    addViewToggle("Show Tile &Sizes", "view/showTileSizes",
+                  &MapViewport::setShowTileSizes);
 
     viewMenu->addSeparator();
 
-    auto* showBoundsBox = viewMenu->addAction("Show B&ounds Box");
-    showBoundsBox->setCheckable(true);
-    connect(showBoundsBox, &QAction::toggled, m_mapViewport, &MapViewport::setShowBounds);
-
-    auto* showCenterPt = viewMenu->addAction("Show &Center Point");
-    showCenterPt->setCheckable(true);
-    connect(showCenterPt, &QAction::toggled, m_mapViewport, &MapViewport::setShowCenter);
+    addViewToggle("Show B&ounds Box", "view/showBoundsBox",
+                  &MapViewport::setShowBounds);
+    addViewToggle("Show &Center Point", "view/showCenterPoint",
+                  &MapViewport::setShowCenter);
 
     viewMenu->addSeparator();
 
