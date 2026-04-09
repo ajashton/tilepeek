@@ -13,7 +13,6 @@ MapViewport::MapViewport(QWidget* parent)
 {
     setMouseTracking(false);
     setFocusPolicy(Qt::StrongFocus);
-    setStyleSheet("background-color: #e0e0e0;");
 }
 
 void MapViewport::setTileProvider(TileProvider* provider)
@@ -58,13 +57,21 @@ void MapViewport::setShowCenter(bool on) { m_showCenter = on; update(); }
 
 void MapViewport::setBounds(std::optional<ParsedBounds> bounds) { m_bounds = bounds; update(); }
 void MapViewport::setCenter(std::optional<ParsedCenter> center) { m_center = center; update(); }
+void MapViewport::setBackgroundColor(const QColor& color) { m_bgColor = color; update(); }
+
+void MapViewport::clearTileCache()
+{
+    m_cache.clear();
+    m_tileSizeCache.clear();
+    update();
+}
 
 // --- Paint ---
 
 void MapViewport::paintEvent(QPaintEvent* /*event*/)
 {
     QPainter painter(this);
-    painter.fillRect(rect(), QColor("#e0e0e0"));
+    painter.fillRect(rect(), m_bgColor);
 
     if (!m_provider)
         return;

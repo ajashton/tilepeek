@@ -2,8 +2,11 @@
 
 #include "model/TilesetMetadata.h"
 
+#include <QMap>
+#include <QSet>
 #include <QWidget>
 
+class QCheckBox;
 class QLabel;
 class QScrollArea;
 class QTabWidget;
@@ -24,6 +27,12 @@ public:
     void setTileStatistics(const TileStatistics& stats);
     void clear();
 
+signals:
+    void layerVisibilityChanged(const QSet<QString>& hiddenLayers);
+
+private slots:
+    void onLayerCheckboxToggled();
+
 private:
     void addSection(QVBoxLayout* layout, const QList<MetadataField>& fields, bool addSeparator);
     void clearStatsSection();
@@ -43,4 +52,5 @@ private:
 
     // Vector mode (tabbed)
     QTabWidget* m_tabWidget = nullptr;
+    QMap<QString, QCheckBox*> m_layerCheckboxes;
 };

@@ -3,6 +3,7 @@
 #include "model/TileStatistics.h"
 #include "util/FormatUtils.h"
 
+#include <QCheckBox>
 #include <QFormLayout>
 #include <QFrame>
 #include <QJsonDocument>
@@ -49,6 +50,7 @@ void MetadataSidebar::clear()
     if (!m_scrollArea->parent()) {
         // If scrollArea was removed from layout for tab mode, re-add it
     }
+    m_layerCheckboxes.clear();
     m_scrollArea->setWidget(nullptr);
     m_scrollArea->show();
     m_header->show();
@@ -153,6 +155,8 @@ QWidget* MetadataSidebar::buildLayersWidget(const QList<VectorLayerInfo>& layers
     auto* layout = new QVBoxLayout(widget);
     layout->setContentsMargins(8, 4, 8, 8);
 
+    m_layerCheckboxes.clear();
+
     for (int i = 0; i < layers.size(); ++i) {
         const auto& layer = layers[i];
 
@@ -163,19 +167,22 @@ QWidget* MetadataSidebar::buildLayersWidget(const QList<VectorLayerInfo>& layers
             layout->addWidget(line);
         }
 
+        auto* checkbox = new QCheckBox(layer.id);
+        checkbox->setChecked(true);
+        checkbox->setStyleSheet("font-weight: bold;");
+        connect(checkbox, &QCheckBox::toggled, this, &MetadataSidebar::onLayerCheckboxToggled);
+        layout->addWidget(checkbox);
+        m_layerCheckboxes[layer.id] = checkbox;
+
         auto* form = new QFormLayout;
-        form->setContentsMargins(0, 4, 0, 4);
+        form->setContentsMargins(16, 2, 0, 4);
         form->setHorizontalSpacing(12);
         form->setVerticalSpacing(4);
-
-        auto* nameLabel = new QLabel(layer.id);
-        nameLabel->setStyleSheet("font-weight: bold; color: #333;");
-        form->addRow("Layer", nameLabel);
 
         if (!layer.description.isEmpty())
             form->addRow("Description", new QLabel(layer.description));
 
-        form->addRow("Zoom", new QLabel(QString("%1–%2").arg(layer.minzoom).arg(layer.maxzoom)));
+        form->addRow("Zoom", new QLabel(QString("%1\xe2\x80\x93%2").arg(layer.minzoom).arg(layer.maxzoom)));
 
         if (!layer.fields.isEmpty()) {
             QStringList fieldList;
@@ -193,6 +200,16 @@ QWidget* MetadataSidebar::buildLayersWidget(const QList<VectorLayerInfo>& layers
 
     layout->addStretch();
     return widget;
+}
+
+void MetadataSidebar::onLayerCheckboxToggled()
+{
+    QSet<QString> hidden;
+    for (auto it = m_layerCheckboxes.constBegin(); it != m_layerCheckboxes.constEnd(); ++it) {
+        if (!it.value()->isChecked())
+            hidden.insert(it.key());
+    }
+    emit layerVisibilityChanged(hidden);
 }
 
 QWidget* MetadataSidebar::buildTilestatsWidget(const QJsonObject& tilestats)

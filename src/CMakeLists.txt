@@ -6,12 +6,14 @@ add_library(tilepeek_lib STATIC
     map/RasterTileProvider.cpp
     map/TileCache.cpp
     map/VectorTileProvider.cpp
+    map/VectorTileRenderer.cpp
     map/WebMercator.cpp
     mbtiles/MBTilesReader.cpp
     mbtiles/MBTilesMetadataParser.cpp
     mbtiles/VectorMetadataParser.cpp
     model/TilesetMetadata.cpp
     mvt/MvtDecoder.cpp
+    mvt/MvtGeometry.cpp
     mvt/ProtobufDecoder.cpp
     stats/TileStatsWorker.cpp
     widgets/MetadataSidebar.cpp

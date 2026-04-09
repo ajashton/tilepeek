@@ -155,6 +155,7 @@ void MainWindow::loadMBTiles(const QString& path)
 
     if (format == "pbf") {
         // Vector tile path
+        QStringList layerNames;
         auto jsonStr = metadata.value("json");
         if (!jsonStr) {
             m_toastManager->showError("Missing required 'json' metadata key for pbf format");
@@ -167,14 +168,21 @@ void MainWindow::loadMBTiles(const QString& path)
                 else
                     m_toastManager->showWarning(vmsg.text);
             }
-            if (vResult.metadata)
+            if (vResult.metadata) {
                 m_sidebar->setVectorMetadata(metadata, *vResult.metadata);
-            else
+                for (const auto& layer : vResult.metadata->vectorLayers)
+                    layerNames << layer.id;
+            } else {
                 m_sidebar->setMetadata(metadata);
+            }
         }
 
         m_tileProvider = std::make_unique<VectorTileProvider>(
-            std::move(reader), minZoom, maxZoom);
+            std::move(reader), minZoom, maxZoom, layerNames);
+        m_mapViewport->setBackgroundColor(QColor("#1a1a2e"));
+
+        connect(m_sidebar, &MetadataSidebar::layerVisibilityChanged,
+                this, &MainWindow::onLayerVisibilityChanged);
     } else {
         // Raster tile path
         auto provider = std::make_unique<RasterTileProvider>(
@@ -243,6 +251,14 @@ void MainWindow::onStatsReady(TileStatistics stats)
     m_statsThread = nullptr;
 }
 
+void MainWindow::onLayerVisibilityChanged(const QSet<QString>& hiddenLayers)
+{
+    if (auto* vtp = dynamic_cast<VectorTileProvider*>(m_tileProvider.get())) {
+        vtp->setHiddenLayers(hiddenLayers);
+        m_mapViewport->clearTileCache();
+    }
+}
+
 void MainWindow::stopStatsThread()
 {
     if (m_statsThread && m_statsThread->isRunning()) {
@@ -255,7 +271,10 @@ void MainWindow::stopStatsThread()
 void MainWindow::clearCurrentFile()
 {
     stopStatsThread();
+    disconnect(m_sidebar, &MetadataSidebar::layerVisibilityChanged,
+               this, &MainWindow::onLayerVisibilityChanged);
     m_mapViewport->clear();
+    m_mapViewport->setBackgroundColor(QColor("#e0e0e0"));
     m_tileProvider.reset();
     m_sidebar->clear();
     m_toastManager->clearAll();

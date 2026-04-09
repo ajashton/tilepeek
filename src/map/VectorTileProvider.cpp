@@ -1,16 +1,20 @@
 #include "map/VectorTileProvider.h"
+#include "map/VectorTileRenderer.h"
 #include "mvt/MvtDecoder.h"
+#include "util/CetColormap.h"
 #include "util/GzipUtils.h"
 #include "util/TileCoords.h"
 
-#include <QPainter>
-
 VectorTileProvider::VectorTileProvider(std::unique_ptr<MBTilesReader> reader,
-                                       int minZoom, int maxZoom)
+                                       int minZoom, int maxZoom,
+                                       const QStringList& layerNames)
     : m_reader(std::move(reader))
     , m_minZoom(minZoom)
     , m_maxZoom(maxZoom)
 {
+    auto colors = CetColormap::pickColors(layerNames.size());
+    for (int i = 0; i < layerNames.size(); ++i)
+        m_layerColors[layerNames[i].toStdString()] = colors[i];
 }
 
 std::optional<QPixmap> VectorTileProvider::tileAt(int zoom, int x, int y)
@@ -32,7 +36,7 @@ std::optional<QPixmap> VectorTileProvider::tileAt(int zoom, int x, int y)
     if (!result.tile)
         return std::nullopt;
 
-    return renderSummaryPixmap(*result.tile);
+    return VectorTileRenderer::render(*result.tile, m_layerColors, m_hiddenLayers);
 }
 
 std::optional<int> VectorTileProvider::tileSizeAt(int zoom, int x, int y)
@@ -44,36 +48,7 @@ std::optional<int> VectorTileProvider::tileSizeAt(int zoom, int x, int y)
     return static_cast<int>(blob->size());
 }
 
-QPixmap VectorTileProvider::renderSummaryPixmap(const mvt::Tile& tile) const
+void VectorTileProvider::setHiddenLayers(const QSet<QString>& hidden)
 {
-    QPixmap pixmap(256, 256);
-    pixmap.fill(QColor("#e8edf2"));
-
-    QPainter painter(&pixmap);
-    QFont mono("monospace", 9);
-    mono.setStyleHint(QFont::Monospace);
-    painter.setFont(mono);
-    painter.setPen(QColor("#334"));
-
-    QFontMetrics fm(mono);
-    int lineHeight = fm.height();
-    int y = 8 + fm.ascent();
-
-    for (const auto& layer : tile.layers) {
-        QString line = QString("%1: %2")
-                           .arg(QString::fromStdString(layer.name))
-                           .arg(layer.features.size());
-        painter.drawText(8, y, line);
-        y += lineHeight;
-
-        if (y > 248)
-            break;
-    }
-
-    if (tile.layers.empty()) {
-        painter.setPen(QColor("#999"));
-        painter.drawText(8, y, "(empty tile)");
-    }
-
-    return pixmap;
+    m_hiddenLayers = hidden;
 }

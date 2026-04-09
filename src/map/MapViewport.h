@@ -26,6 +26,8 @@ public:
 
     void setBounds(std::optional<ParsedBounds> bounds);
     void setCenter(std::optional<ParsedCenter> center);
+    void setBackgroundColor(const QColor& color);
+    void clearTileCache();
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -69,4 +71,5 @@ private:
 
     std::optional<ParsedBounds> m_bounds;
     std::optional<ParsedCenter> m_center;
+    QColor m_bgColor{"#e0e0e0"};
 };

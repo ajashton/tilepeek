@@ -97,10 +97,14 @@ _Basic vector tile rendering_
   3. Build `QPainterPath` objects from the MVT command stream
   4. Draw with default styles per layer
 - Default styling:
+  - Black/dark background
   - Assign a distinct color per vector layer from a built-in palette
-  - Polygons: semi-transparent fill with solid stroke
-  - Lines: solid colored stroke
-  - Points: small filled circles
+    - `reference/CET-C6-colormap.csv` contains a cyclic palette of 256 colors
+    - convert the CSV color map to whatever format makes sense in C++ (eg a static flat array of integers)
+    - choose a set of equally spaced colors from this colormap based on the number of layers in the tileset
+  - Polygons: the layer color with 10% opaque fill with 50% opaque stroke
+  - Lines: the layer color with 50% opaque stroke
+  - Points: small circles in the layer color with 50% opacity
 - Enable anti-aliasing by default (`QPainter::Antialiasing` render hint)
 - Cache rendered vector tiles to `QPixmap` — invalidate on pan/zoom to avoid re-drawing the same geometry every paint event
 - Support toggling individual vector layers on/off via the Layers sidebar
