@@ -16,10 +16,20 @@
 #include <QPlainTextEdit>
 #include <QScrollArea>
 #include <QTabWidget>
+#include <QToolButton>
 #include <QToolTip>
 #include <QVBoxLayout>
 
 namespace {
+
+void setSubduedTextColor(QWidget* widget)
+{
+    auto pal = widget->palette();
+    auto color = pal.color(QPalette::WindowText);
+    color.setAlphaF(0.55);
+    pal.setColor(QPalette::WindowText, color);
+    widget->setPalette(pal);
+}
 
 class TileSizeBarWidget : public QWidget {
 public:
@@ -172,7 +182,8 @@ void MetadataSidebar::setMetadata(const TilesetMetadata& metadata)
 }
 
 void MetadataSidebar::setVectorMetadata(const TilesetMetadata& metadata,
-                                         const VectorMetadata& vectorMeta)
+                                         const VectorMetadata& vectorMeta,
+                                         const QList<QColor>& layerColors)
 {
     clear();
 
@@ -199,7 +210,7 @@ void MetadataSidebar::setVectorMetadata(const TilesetMetadata& metadata,
     m_tabWidget->addTab(metaScroll, "Metadata");
 
     // Layers tab
-    auto* layersWidget = buildLayersWidget(vectorMeta.vectorLayers);
+    auto* layersWidget = buildLayersWidget(vectorMeta.vectorLayers, layerColors);
     auto* layersScroll = new QScrollArea;
     layersScroll->setWidgetResizable(true);
     layersScroll->setFrameShape(QFrame::NoFrame);
@@ -249,16 +260,19 @@ QWidget* MetadataSidebar::buildMetadataWidget(const TilesetMetadata& metadata, b
     return widget;
 }
 
-QWidget* MetadataSidebar::buildLayersWidget(const QList<VectorLayerInfo>& layers)
+QWidget* MetadataSidebar::buildLayersWidget(const QList<VectorLayerInfo>& layers,
+                                             const QList<QColor>& layerColors)
 {
     auto* widget = new QWidget;
     auto* layout = new QVBoxLayout(widget);
-    layout->setContentsMargins(8, 4, 8, 8);
+    layout->setContentsMargins(4, 4, 4, 4);
+    layout->setSpacing(0);
 
     m_layerCheckboxes.clear();
 
     for (int i = 0; i < layers.size(); ++i) {
         const auto& layer = layers[i];
+        QColor color = (i < layerColors.size()) ? layerColors[i] : QColor("#646464");
 
         if (i > 0) {
             auto* line = new QFrame;
@@ -267,35 +281,89 @@ QWidget* MetadataSidebar::buildLayersWidget(const QList<VectorLayerInfo>& layers
             layout->addWidget(line);
         }
 
+        // Header row
+        auto* headerLayout = new QHBoxLayout;
+        headerLayout->setContentsMargins(0, 2, 4, 2);
+        headerLayout->setSpacing(2);
+
+        auto* arrow = new QToolButton;
+        arrow->setArrowType(Qt::RightArrow);
+        arrow->setAutoRaise(true);
+        arrow->setCheckable(true);
+        arrow->setFixedSize(20, 20);
+
+        auto* swatch = new QFrame;
+        swatch->setFixedSize(16, 16);
+        swatch->setStyleSheet(QString("background-color: %1;").arg(color.name()));
+
         auto* checkbox = new QCheckBox(layer.id);
         checkbox->setChecked(true);
         checkbox->setStyleSheet("font-weight: bold;");
         connect(checkbox, &QCheckBox::toggled, this, &MetadataSidebar::onLayerCheckboxToggled);
-        layout->addWidget(checkbox);
         m_layerCheckboxes[layer.id] = checkbox;
 
-        auto* form = new QFormLayout;
-        form->setContentsMargins(16, 2, 0, 4);
-        form->setHorizontalSpacing(12);
-        form->setVerticalSpacing(4);
+        auto* zoomLabel = new QLabel(QString("z%1\xe2\x80\x93%2").arg(layer.minzoom).arg(layer.maxzoom));
+        setSubduedTextColor(zoomLabel);
 
-        if (!layer.description.isEmpty())
-            form->addRow("Description", new QLabel(layer.description));
+        headerLayout->addWidget(arrow);
+        headerLayout->addWidget(swatch);
+        headerLayout->addWidget(checkbox, 1);
+        headerLayout->addWidget(zoomLabel);
 
-        form->addRow("Zoom", new QLabel(QString("%1\xe2\x80\x93%2").arg(layer.minzoom).arg(layer.maxzoom)));
+        layout->addLayout(headerLayout);
 
-        if (!layer.fields.isEmpty()) {
-            QStringList fieldList;
-            for (auto it = layer.fields.constBegin(); it != layer.fields.constEnd(); ++it)
-                fieldList << QString("%1 (%2)").arg(it.key(), it.value());
+        // Detail widget (initially hidden)
+        auto* detail = new QWidget;
+        auto* detailLayout = new QVBoxLayout(detail);
+        detailLayout->setContentsMargins(28, 0, 8, 4);
+        detailLayout->setSpacing(4);
 
-            auto* fieldsLabel = new QLabel(fieldList.join("\n"));
-            fieldsLabel->setWordWrap(true);
-            fieldsLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-            form->addRow("Fields", fieldsLabel);
+        if (layer.description.isEmpty() && layer.fields.isEmpty()) {
+            auto* emptyLabel = new QLabel("No description or fields");
+            emptyLabel->setStyleSheet("font-style: italic;");
+            setSubduedTextColor(emptyLabel);
+            detailLayout->addWidget(emptyLabel);
         }
 
-        layout->addLayout(form);
+        if (!layer.description.isEmpty()) {
+            auto* descLabel = new QLabel(layer.description);
+            descLabel->setWordWrap(true);
+            descLabel->setStyleSheet("font-style: italic;");
+            setSubduedTextColor(descLabel);
+            detailLayout->addWidget(descLabel);
+        }
+
+        if (!layer.fields.isEmpty()) {
+            auto* form = new QFormLayout;
+            form->setContentsMargins(0, 2, 0, 0);
+            form->setHorizontalSpacing(12);
+            form->setVerticalSpacing(2);
+            form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+
+            for (auto it = layer.fields.constBegin(); it != layer.fields.constEnd(); ++it) {
+                auto* nameLabel = new QLabel(it.key());
+                QFont mono("monospace");
+                mono.setStyleHint(QFont::Monospace);
+                nameLabel->setFont(mono);
+
+                auto* typeLabel = new QLabel(it.value());
+                typeLabel->setWordWrap(true);
+                setSubduedTextColor(typeLabel);
+
+                form->addRow(nameLabel, typeLabel);
+            }
+
+            detailLayout->addLayout(form);
+        }
+
+        detail->setVisible(false);
+        layout->addWidget(detail);
+
+        // Connect arrow toggle
+        connect(arrow, &QToolButton::toggled, this, [arrow, detail](bool expanded) {
+            arrow->setArrowType(expanded ? Qt::DownArrow : Qt::RightArrow);
+            detail->setVisible(expanded);
+        });
     }
 
     layout->addStretch();

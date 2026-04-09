@@ -2,6 +2,8 @@
 
 #include "model/TilesetMetadata.h"
 
+#include <QColor>
+#include <QList>
 #include <QMap>
 #include <QSet>
 #include <QWidget>
@@ -22,7 +24,8 @@ public:
     explicit MetadataSidebar(QWidget* parent = nullptr);
 
     void setMetadata(const TilesetMetadata& metadata);
-    void setVectorMetadata(const TilesetMetadata& metadata, const VectorMetadata& vectorMeta);
+    void setVectorMetadata(const TilesetMetadata& metadata, const VectorMetadata& vectorMeta,
+                           const QList<QColor>& layerColors);
     void setStatsPlaceholder();
     void setTileStatistics(const TileStatistics& stats);
     void clear();
@@ -37,7 +40,7 @@ private:
     void addSection(QVBoxLayout* layout, const QList<MetadataField>& fields, bool addSeparator);
     void clearStatsSection();
     QWidget* buildMetadataWidget(const TilesetMetadata& metadata, bool skipJson);
-    QWidget* buildLayersWidget(const QList<VectorLayerInfo>& layers);
+    QWidget* buildLayersWidget(const QList<VectorLayerInfo>& layers, const QList<QColor>& layerColors);
     QWidget* buildTilestatsWidget(const QJsonObject& tilestats);
     QWidget* buildRawJsonWidget(const QJsonObject& json);
 

@@ -9,6 +9,7 @@
 #include "pmtiles/PMTilesMetadataParser.h"
 #include "pmtiles/PMTilesReader.h"
 #include "stats/TileStatsWorker.h"
+#include "util/CetColormap.h"
 #include "widgets/MetadataSidebar.h"
 #include "widgets/ToastManager.h"
 
@@ -184,9 +185,11 @@ void MainWindow::loadMBTiles(const QString& path)
                     m_toastManager->showWarning(vmsg.text);
             }
             if (vResult.metadata) {
-                m_sidebar->setVectorMetadata(metadata, *vResult.metadata);
                 for (const auto& layer : vResult.metadata->vectorLayers)
                     layerNames << layer.id;
+                auto colors = CetColormap::pickColors(layerNames.size());
+                QList<QColor> colorList(colors.begin(), colors.end());
+                m_sidebar->setVectorMetadata(metadata, *vResult.metadata, colorList);
             } else {
                 m_sidebar->setMetadata(metadata);
             }
@@ -315,9 +318,11 @@ void MainWindow::loadPMTiles(const QString& path)
                     m_toastManager->showWarning(vmsg.text);
             }
             if (vResult.metadata) {
-                m_sidebar->setVectorMetadata(metadata, *vResult.metadata);
                 for (const auto& layer : vResult.metadata->vectorLayers)
                     layerNames << layer.id;
+                auto colors = CetColormap::pickColors(layerNames.size());
+                QList<QColor> colorList(colors.begin(), colors.end());
+                m_sidebar->setVectorMetadata(metadata, *vResult.metadata, colorList);
             } else {
                 m_sidebar->setMetadata(metadata);
             }
