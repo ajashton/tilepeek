@@ -2,6 +2,7 @@
 
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QPalette>
 #include <QToolButton>
 
 ToastWidget::ToastWidget(Level level, const QString& message, QWidget* parent)
@@ -11,26 +12,34 @@ ToastWidget::ToastWidget(Level level, const QString& message, QWidget* parent)
     setFrameShape(QFrame::NoFrame);
     setAutoFillBackground(true);
 
-    QString bgColor, accentColor, icon;
+    // Blend accent color with the system window background for a subtle tint
+    auto baseBg = palette().color(QPalette::Window);
+    auto blendWith = [&](QColor accent, double ratio) {
+        return QColor(
+            static_cast<int>(baseBg.red() * (1 - ratio) + accent.red() * ratio),
+            static_cast<int>(baseBg.green() * (1 - ratio) + accent.green() * ratio),
+            static_cast<int>(baseBg.blue() * (1 - ratio) + accent.blue() * ratio));
+    };
+
+    QColor accentColor;
+    QString icon;
     switch (level) {
     case Level::Error:
-        bgColor = "#fde8e8";
-        accentColor = "#e53e3e";
+        accentColor = QColor("#e53e3e");
         icon = "\xe2\x9d\x8c"; // X mark
         break;
     case Level::Warning:
-        bgColor = "#fefce8";
-        accentColor = "#d69e2e";
+        accentColor = QColor("#d69e2e");
         icon = "\xe2\x9a\xa0\xef\xb8\x8f"; // warning sign
         break;
     case Level::Info:
-        bgColor = "#ebf8ff";
-        accentColor = "#3182ce";
+        accentColor = QColor("#3182ce");
         icon = "\xe2\x84\xb9\xef\xb8\x8f"; // info
         break;
     }
 
-    setStyleSheet(QString("ToastWidget { background-color: %1; }").arg(bgColor));
+    QColor bgColor = blendWith(accentColor, 0.12);
+    setStyleSheet(QString("ToastWidget { background-color: %1; }").arg(bgColor.name()));
 
     // Single flat layout: accent bar | icon | message | close button
     auto* layout = new QHBoxLayout(this);
@@ -39,7 +48,7 @@ ToastWidget::ToastWidget(Level level, const QString& message, QWidget* parent)
 
     auto* accentBar = new QFrame(this);
     accentBar->setFixedWidth(4);
-    accentBar->setStyleSheet(QString("background-color: %1;").arg(accentColor));
+    accentBar->setStyleSheet(QString("background-color: %1;").arg(accentColor.name()));
     layout->addWidget(accentBar);
 
     auto* iconLabel = new QLabel(icon, this);
