@@ -25,6 +25,7 @@ static ZoomLevelStats computeStats(const std::vector<int64_t>& sortedSizes)
     stats.p50Size = percentile(sortedSizes, 50.0);
     stats.p90Size = percentile(sortedSizes, 90.0);
     stats.p99Size = percentile(sortedSizes, 99.0);
+    stats.maxSize = sortedSizes.empty() ? 0 : sortedSizes.back();
     return stats;
 }
 

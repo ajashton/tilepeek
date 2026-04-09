@@ -10,10 +10,110 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QLocale>
+#include <QEvent>
+#include <QHelpEvent>
+#include <QPainter>
 #include <QPlainTextEdit>
 #include <QScrollArea>
 #include <QTabWidget>
+#include <QToolTip>
 #include <QVBoxLayout>
+
+namespace {
+
+class TileSizeBarWidget : public QWidget {
+public:
+    TileSizeBarWidget(int zoom, const ZoomLevelStats& stats, int64_t globalMax, QWidget* parent = nullptr)
+        : QWidget(parent)
+        , m_zoom(zoom)
+        , m_stats(stats)
+        , m_globalMax(globalMax)
+    {
+        setFixedHeight(16);
+        setMouseTracking(true);
+    }
+
+protected:
+    void paintEvent(QPaintEvent*) override
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+
+        int labelW = 20;
+        int barX = labelW;
+        int barW = width() - labelW;
+        int barH = height() - 2;
+        int barY = 1;
+
+        // Zoom label
+        p.setPen(palette().color(QPalette::Text));
+        QFont f = font();
+        f.setPointSize(f.pointSize() - 1);
+        p.setFont(f);
+        p.drawText(QRect(0, 0, labelW - 4, height()), Qt::AlignRight | Qt::AlignVCenter,
+                   QString::number(m_zoom));
+
+        if (m_globalMax <= 0 || barW <= 0)
+            return;
+
+        auto xFor = [&](int64_t size) {
+            return static_cast<int>(static_cast<double>(size) / m_globalMax * barW);
+        };
+
+        // Draw segments from widest (max) to narrowest (p50) so they stack
+        struct Segment {
+            int64_t size;
+            QColor color;
+        };
+
+        // Use palette-aware greys
+        auto base = palette().color(QPalette::Text);
+        auto withAlpha = [&](int alpha) {
+            QColor c = base;
+            c.setAlpha(alpha);
+            return c;
+        };
+
+        Segment segments[] = {
+            {m_stats.maxSize, withAlpha(50)},
+            {m_stats.p99Size, withAlpha(80)},
+            {m_stats.p90Size, withAlpha(120)},
+            {m_stats.p50Size, withAlpha(180)},
+        };
+
+        for (const auto& seg : segments) {
+            int w = xFor(seg.size);
+            if (w > 0) {
+                p.fillRect(barX, barY, w, barH, seg.color);
+            }
+        }
+    }
+
+    bool event(QEvent* e) override
+    {
+        if (e->type() == QEvent::ToolTip) {
+            auto* he = static_cast<QHelpEvent*>(e);
+            QString tip = QString("Zoom %1 — %2 tiles\n"
+                                  "p50: %3 | p90: %4 | p99: %5 | max: %6")
+                              .arg(m_zoom)
+                              .arg(QLocale().toString(m_stats.tileCount))
+                              .arg(FormatUtils::formatTileSize(static_cast<int>(m_stats.p50Size)))
+                              .arg(FormatUtils::formatTileSize(static_cast<int>(m_stats.p90Size)))
+                              .arg(FormatUtils::formatTileSize(static_cast<int>(m_stats.p99Size)))
+                              .arg(FormatUtils::formatTileSize(static_cast<int>(m_stats.maxSize)));
+            QToolTip::showText(he->globalPos(), tip, this);
+            return true;
+        }
+        return QWidget::event(e);
+    }
+
+private:
+    int m_zoom;
+    ZoomLevelStats m_stats;
+    int64_t m_globalMax;
+};
+
+} // namespace
 
 MetadataSidebar::MetadataSidebar(QWidget* parent)
     : QWidget(parent)
@@ -317,42 +417,30 @@ void MetadataSidebar::setTileStatistics(const TileStatistics& stats)
     line->setFrameShadow(QFrame::Sunken);
     m_statsLayout->addWidget(line);
 
-    auto* header = new QLabel("Tile Statistics");
-    header->setStyleSheet("font-weight: bold; color: #333; padding: 4px 0;");
+    auto* header = new QLabel("Statistics");
+    header->setStyleSheet("font-weight: bold; padding: 4px 0;");
     m_statsLayout->addWidget(header);
 
-    QLocale locale;
+    auto* subhead = new QLabel("Tile size by zoom level:");
+    subhead->setStyleSheet("padding: 0 0 2px 0;");
+    m_statsLayout->addWidget(subhead);
 
-    auto addStatsForm = [&](const QString& title, const ZoomLevelStats& s) {
-        auto* form = new QFormLayout;
-        form->setContentsMargins(0, 2, 0, 2);
-        form->setHorizontalSpacing(12);
-        form->setVerticalSpacing(4);
-        form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
-
-        auto* titleLabel = new QLabel(title);
-        titleLabel->setStyleSheet("font-weight: bold; color: #555;");
-        auto* countLabel = new QLabel(locale.toString(s.tileCount) + " tiles");
-        countLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-        form->addRow(titleLabel, countLabel);
-
-        auto addSizeRow = [&](const QString& name, int64_t value) {
-            auto* nameLabel = new QLabel(name);
-            nameLabel->setStyleSheet("color: #777; padding-left: 12px;");
-            auto* valLabel = new QLabel(FormatUtils::formatTileSize(static_cast<int>(value)));
-            valLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-            form->addRow(nameLabel, valLabel);
-        };
-
-        addSizeRow("p50", s.p50Size);
-        addSizeRow("p90", s.p90Size);
-        addSizeRow("p99", s.p99Size);
-
-        m_statsLayout->addLayout(form);
-    };
-
-    addStatsForm("Total", stats.total);
-
+    // Find the global maximum tile size across all zoom levels
+    int64_t globalMax = 0;
     for (auto it = stats.perZoom.constBegin(); it != stats.perZoom.constEnd(); ++it)
-        addStatsForm(QString("Zoom %1").arg(it.key()), it.value());
+        globalMax = std::max(globalMax, it.value().maxSize);
+
+    // One bar per zoom level
+    for (auto it = stats.perZoom.constBegin(); it != stats.perZoom.constEnd(); ++it) {
+        auto* bar = new TileSizeBarWidget(it.key(), it.value(), globalMax);
+        m_statsLayout->addWidget(bar);
+    }
+
+    // Max size label aligned right
+    if (globalMax > 0) {
+        auto* maxLabel = new QLabel("max: " + FormatUtils::formatTileSize(static_cast<int>(globalMax)));
+        maxLabel->setAlignment(Qt::AlignRight);
+        maxLabel->setStyleSheet("padding: 2px 0;");
+        m_statsLayout->addWidget(maxLabel);
+    }
 }

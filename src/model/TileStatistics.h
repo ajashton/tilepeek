@@ -9,6 +9,7 @@ struct ZoomLevelStats {
     int64_t p50Size = 0;
     int64_t p90Size = 0;
     int64_t p99Size = 0;
+    int64_t maxSize = 0;
 };
 
 struct TileStatistics {
