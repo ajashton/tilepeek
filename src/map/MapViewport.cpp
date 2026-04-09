@@ -236,12 +236,19 @@ void MapViewport::wheelEvent(QWheelEvent* event)
     if (angleDelta == 0)
         return;
 
+    // World-space point under cursor (before scale change)
+    QPointF viewCenter(width() / 2.0, height() / 2.0);
+    QPointF cursorOffset = event->position() - viewCenter;
+    QPointF worldUnderCursor = m_centerPixel + cursorOffset / (m_scale * displayScale());
+
     double scaleStep = 1.0 + (angleDelta / 120.0) * 0.1;
     double newScale = m_scale * scaleStep;
 
     if (newScale >= 2.0 && m_zoom < m_provider->maxZoom()) {
+        worldUnderCursor *= 2.0;
         transitionZoom(m_zoom + 1);
     } else if (newScale < 1.0 && m_zoom > m_provider->minZoom()) {
+        worldUnderCursor /= 2.0;
         transitionZoom(m_zoom - 1);
     } else if (newScale >= 2.0) {
         m_scale = 1.99;
@@ -250,6 +257,10 @@ void MapViewport::wheelEvent(QWheelEvent* event)
     } else {
         m_scale = newScale;
     }
+
+    // Adjust center so the world point stays under the cursor
+    m_centerPixel = worldUnderCursor - cursorOffset / (m_scale * displayScale());
+    clampViewport();
 
     update();
     event->accept();
