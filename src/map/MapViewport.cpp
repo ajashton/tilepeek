@@ -73,6 +73,7 @@ void MapViewport::clearTileCache()
 void MapViewport::paintEvent(QPaintEvent* /*event*/)
 {
     QPainter painter(this);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform);
     painter.fillRect(rect(), m_bgColor);
 
     if (!m_provider)
