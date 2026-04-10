@@ -4,6 +4,8 @@
 #include "util/FormatUtils.h"
 
 #include <QCheckBox>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QFrame>
 #include <QJsonDocument>
@@ -14,6 +16,7 @@
 #include <QHelpEvent>
 #include <QPainter>
 #include <QPlainTextEdit>
+#include <QPushButton>
 #include <QScrollArea>
 #include <QTextLayout>
 #include <QTabWidget>
@@ -241,6 +244,7 @@ void MetadataSidebar::clear()
         // If scrollArea was removed from layout for tab mode, re-add it
     }
     m_layerCheckboxes.clear();
+    m_rawJson = QJsonObject();
     m_scrollArea->setWidget(nullptr);
     m_scrollArea->show();
     m_header->show();
@@ -310,9 +314,7 @@ void MetadataSidebar::setVectorMetadata(const TilesetMetadata& metadata,
         m_tabWidget->addTab(statsScroll, "Stats");
     }
 
-    // Raw JSON tab
-    auto* jsonWidget = buildRawJsonWidget(vectorMeta.rawJson);
-    m_tabWidget->addTab(jsonWidget, "Raw JSON");
+    m_rawJson = vectorMeta.rawJson;
 }
 
 QWidget* MetadataSidebar::buildMetadataWidget(const TilesetMetadata& metadata, bool skipJson)
@@ -338,6 +340,17 @@ QWidget* MetadataSidebar::buildMetadataWidget(const TilesetMetadata& metadata, b
             continue;
         addSection(layout, fields, !firstSection);
         firstSection = false;
+    }
+
+    if (skipJson) {
+        auto* line = new QFrame;
+        line->setFrameShape(QFrame::HLine);
+        line->setFrameShadow(QFrame::Sunken);
+        layout->addWidget(line);
+
+        auto* jsonBtn = new QPushButton("View metadata JSON\u2026");
+        connect(jsonBtn, &QPushButton::clicked, this, &MetadataSidebar::showJsonWindow);
+        layout->addWidget(jsonBtn);
     }
 
     return widget;
@@ -480,15 +493,28 @@ QWidget* MetadataSidebar::buildTilestatsWidget(const QJsonObject& tilestats)
     return widget;
 }
 
-QWidget* MetadataSidebar::buildRawJsonWidget(const QJsonObject& json)
+void MetadataSidebar::showJsonWindow()
 {
-    QJsonDocument doc(json);
+    auto* dialog = new QDialog(this);
+    dialog->setWindowTitle("Metadata JSON");
+    dialog->resize(600, 500);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+
+    auto* layout = new QVBoxLayout(dialog);
+
+    QJsonDocument doc(m_rawJson);
     auto* text = new QPlainTextEdit(QString::fromUtf8(doc.toJson(QJsonDocument::Indented)));
     text->setReadOnly(true);
     QFont mono("monospace", 9);
     mono.setStyleHint(QFont::Monospace);
     text->setFont(mono);
-    return text;
+    layout->addWidget(text);
+
+    auto* buttonBox = new QDialogButtonBox(QDialogButtonBox::Close);
+    connect(buttonBox, &QDialogButtonBox::rejected, dialog, &QDialog::reject);
+    layout->addWidget(buttonBox);
+
+    dialog->show();
 }
 
 void MetadataSidebar::addSection(QVBoxLayout* layout, const QList<MetadataField>& fields,

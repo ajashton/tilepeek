@@ -3,6 +3,7 @@
 #include "model/TilesetMetadata.h"
 
 #include <QColor>
+#include <QJsonObject>
 #include <QList>
 #include <QMap>
 #include <QSet>
@@ -16,7 +17,6 @@ class QVBoxLayout;
 struct TileStatistics;
 struct VectorLayerInfo;
 struct VectorMetadata;
-class QJsonObject;
 
 class MetadataSidebar : public QWidget {
     Q_OBJECT
@@ -42,7 +42,7 @@ private:
     QWidget* buildMetadataWidget(const TilesetMetadata& metadata, bool skipJson);
     QWidget* buildLayersWidget(const QList<VectorLayerInfo>& layers, const QList<QColor>& layerColors);
     QWidget* buildTilestatsWidget(const QJsonObject& tilestats);
-    QWidget* buildRawJsonWidget(const QJsonObject& json);
+    void showJsonWindow();
 
     QVBoxLayout* m_outerLayout = nullptr;
     QLabel* m_header = nullptr;
@@ -56,4 +56,5 @@ private:
     // Vector mode (tabbed)
     QTabWidget* m_tabWidget = nullptr;
     QMap<QString, QCheckBox*> m_layerCheckboxes;
+    QJsonObject m_rawJson;
 };
