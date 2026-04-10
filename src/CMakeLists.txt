@@ -2,7 +2,10 @@ find_package(ZLIB REQUIRED)
 
 configure_file(version.h.in ${CMAKE_CURRENT_BINARY_DIR}/version.h @ONLY)
 
+qt_add_resources(TILEPEEK_RESOURCES ${CMAKE_SOURCE_DIR}/icons/icons.qrc)
+
 add_library(tilepeek_lib STATIC
+    app/AboutDialog.cpp
     app/MainWindow.cpp
     map/MapViewport.cpp
     map/RasterTileProvider.cpp
@@ -26,6 +29,7 @@ add_library(tilepeek_lib STATIC
     util/FormatUtils.cpp
     util/GzipUtils.cpp
     util/TileCoords.cpp
+    ${TILEPEEK_RESOURCES}
 )
 target_include_directories(tilepeek_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

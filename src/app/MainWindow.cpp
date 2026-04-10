@@ -1,3 +1,4 @@
+#include "app/AboutDialog.h"
 #include "app/MainWindow.h"
 #include "map/MapViewport.h"
 #include "map/RasterTileProvider.h"
@@ -97,6 +98,14 @@ void MainWindow::setupMenuBar()
     m_tileScaleGroup = new QActionGroup(this);
     m_tileScaleGroup->setExclusive(true);
     connect(m_tileScaleGroup, &QActionGroup::triggered, this, &MainWindow::onTileScaleChanged);
+
+    // Help menu
+    auto* helpMenu = menuBar()->addMenu("&Help");
+    auto* aboutAction = helpMenu->addAction("&About TilePeek\u2026");
+    connect(aboutAction, &QAction::triggered, this, [this] {
+        AboutDialog dlg(this);
+        dlg.exec();
+    });
 }
 
 void MainWindow::setupCentralWidget()
