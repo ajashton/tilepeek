@@ -171,8 +171,15 @@ void MapViewport::drawTileOverlays(QPainter& painter, const QRect& tiles,
 
             if (m_showTileBoundaries) {
                 painter.setPen(QPen(QColor(255, 255, 255, 64), 1.0));
-                painter.setBrush(Qt::NoBrush);
-                painter.drawRect(tileRect);
+                // Draw bottom and right edges of each tile; draw top/left
+                // edges only for the first row/column to avoid double lines
+                // along interior seams.
+                painter.drawLine(tileRect.bottomLeft(), tileRect.bottomRight());
+                painter.drawLine(tileRect.topRight(), tileRect.bottomRight());
+                if (ty == tiles.top())
+                    painter.drawLine(tileRect.topLeft(), tileRect.topRight());
+                if (tx == tiles.left())
+                    painter.drawLine(tileRect.topLeft(), tileRect.bottomLeft());
             }
 
             QStringList lines;
