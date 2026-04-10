@@ -2,7 +2,8 @@ find_package(ZLIB REQUIRED)
 
 configure_file(version.h.in ${CMAKE_CURRENT_BINARY_DIR}/version.h @ONLY)
 
-qt_add_resources(TILEPEEK_RESOURCES ${CMAKE_SOURCE_DIR}/resources/icons/icons.qrc)
+qt_add_resources(TILEPEEK_RESOURCES_ICONS ${CMAKE_SOURCE_DIR}/resources/icons/icons.qrc)
+qt_add_resources(TILEPEEK_RESOURCES_GRAPHICS ${CMAKE_SOURCE_DIR}/resources/graphics/graphics.qrc)
 
 add_library(tilepeek_lib STATIC
     app/AboutDialog.cpp
@@ -24,12 +25,12 @@ add_library(tilepeek_lib STATIC
     pmtiles/PMTilesMetadataParser.cpp
     stats/TileStatsWorker.cpp
     widgets/MetadataSidebar.cpp
+    widgets/EmptyStateWidget.cpp
     widgets/ToastManager.cpp
     widgets/ToastWidget.cpp
     util/FormatUtils.cpp
     util/GzipUtils.cpp
     util/TileCoords.cpp
-    ${TILEPEEK_RESOURCES}
 )
 target_include_directories(tilepeek_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -38,7 +39,7 @@ target_include_directories(tilepeek_lib PUBLIC
 )
 target_link_libraries(tilepeek_lib PUBLIC Qt6::Widgets Qt6::Sql ZLIB::ZLIB)
 
-add_executable(tilepeek main.cpp)
+add_executable(tilepeek main.cpp ${TILEPEEK_RESOURCES_ICONS} ${TILEPEEK_RESOURCES_GRAPHICS})
 target_link_libraries(tilepeek PRIVATE tilepeek_lib)
 
 # Install targets

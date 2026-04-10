@@ -4,6 +4,7 @@
 #include <QSet>
 #include <memory>
 
+class EmptyStateWidget;
 class MapViewport;
 class MetadataSidebar;
 class TileProvider;
@@ -11,6 +12,7 @@ class TileStatsWorker;
 class ToastManager;
 class QActionGroup;
 class QMenu;
+class QStackedWidget;
 class QThread;
 struct TileStatistics;
 
@@ -42,6 +44,8 @@ private:
     MapViewport* m_mapViewport = nullptr;
     MetadataSidebar* m_sidebar = nullptr;
     ToastManager* m_toastManager = nullptr;
+    EmptyStateWidget* m_emptyState = nullptr;
+    QStackedWidget* m_stack = nullptr;
     std::unique_ptr<TileProvider> m_tileProvider;
 
     QThread* m_statsThread = nullptr;

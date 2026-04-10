@@ -11,6 +11,7 @@
 #include "pmtiles/PMTilesReader.h"
 #include "stats/TileStatsWorker.h"
 #include "util/CetColormap.h"
+#include "widgets/EmptyStateWidget.h"
 #include "widgets/MetadataSidebar.h"
 #include "widgets/ToastManager.h"
 
@@ -24,6 +25,7 @@
 #include <QSettings>
 #include <QMimeData>
 #include <QSplitter>
+#include <QStackedWidget>
 #include <QThread>
 
 MainWindow::MainWindow(QWidget* parent)
@@ -110,18 +112,24 @@ void MainWindow::setupMenuBar()
 
 void MainWindow::setupCentralWidget()
 {
-    auto* splitter = new QSplitter(Qt::Horizontal, this);
+    m_stack = new QStackedWidget(this);
 
+    m_emptyState = new EmptyStateWidget(m_stack);
+
+    auto* splitter = new QSplitter(Qt::Horizontal, m_stack);
     m_sidebar = new MetadataSidebar(splitter);
     m_mapViewport = new MapViewport(splitter);
-
     splitter->addWidget(m_sidebar);
     splitter->addWidget(m_mapViewport);
     splitter->setStretchFactor(0, 0);
     splitter->setStretchFactor(1, 1);
     splitter->setSizes({300, 700});
 
-    setCentralWidget(splitter);
+    m_stack->addWidget(m_emptyState);
+    m_stack->addWidget(splitter);
+    m_stack->setCurrentWidget(m_emptyState);
+
+    setCentralWidget(m_stack);
 }
 
 void MainWindow::onOpenFile()
@@ -253,6 +261,7 @@ void MainWindow::loadMBTiles(const QString& path)
     }
 
     m_mapViewport->setTileProvider(m_tileProvider.get());
+    m_stack->setCurrentIndex(1);
 
     // Pass bounds and center to viewport
     auto boundsOpt = MBTilesMetadataParser::parseBounds(metadata.value("bounds").value_or(""));
@@ -367,6 +376,7 @@ void MainWindow::loadPMTiles(const QString& path)
     }
 
     m_mapViewport->setTileProvider(m_tileProvider.get());
+    m_stack->setCurrentIndex(1);
 
     // Pass bounds and center to viewport
     auto boundsOpt = MBTilesMetadataParser::parseBounds(metadata.value("bounds").value_or(""));
@@ -487,6 +497,7 @@ void MainWindow::clearCurrentFile()
     m_mapViewport->setBackgroundColor(palette().color(QPalette::Window));
     m_tileProvider.reset();
     m_sidebar->clear();
+    m_stack->setCurrentWidget(m_emptyState);
     m_toastManager->clearAll();
     m_tileScaleMenu->setEnabled(false);
     for (auto* action : m_tileScaleGroup->actions())
