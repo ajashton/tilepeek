@@ -150,7 +150,7 @@ void MapViewport::drawTileOverlays(QPainter& painter, const QRect& tiles,
             QRectF tileRect = tileScreenRect(tx, ty, viewCenter, scaledTileSize);
 
             if (m_showTileBoundaries) {
-                painter.setPen(QPen(QColor(0, 0, 0, 80), 1.0));
+                painter.setPen(QPen(QColor(255, 255, 255, 64), 1.0));
                 painter.setBrush(Qt::NoBrush);
                 painter.drawRect(tileRect);
             }
@@ -177,7 +177,7 @@ void MapViewport::drawTileOverlays(QPainter& painter, const QRect& tiles,
 void MapViewport::drawTileText(QPainter& painter, const QRectF& tileRect,
                                 const QStringList& lines)
 {
-    constexpr int padding = 4;
+    constexpr int padding = 2;
     QFontMetrics fm(painter.font());
     int lineHeight = fm.height();
 
@@ -189,9 +189,9 @@ void MapViewport::drawTileText(QPainter& painter, const QRectF& tileRect,
 
     QRectF bgRect(tileRect.left() + padding, tileRect.top() + padding,
                   textBlockWidth + 2 * padding, textBlockHeight + 2 * padding);
-    painter.fillRect(bgRect, QColor(255, 255, 255, 180));
+    painter.fillRect(bgRect, QColor(0, 0, 0, 128));
 
-    painter.setPen(Qt::black);
+    painter.setPen(Qt::white);
     int y = static_cast<int>(tileRect.top()) + padding + fm.ascent() + padding;
     for (const auto& line : lines) {
         painter.drawText(static_cast<int>(tileRect.left()) + 2 * padding, y, line);
@@ -208,7 +208,7 @@ void MapViewport::drawBoundsOverlay(QPainter& painter, QPointF viewCenter)
     QPointF bottomRight = geoToScreen(m_bounds->right, m_bounds->bottom, viewCenter);
     QRectF boundsRect(topLeft, bottomRight);
 
-    painter.setPen(QPen(QColor(30, 120, 220, 200), 2.0, Qt::DashLine));
+    painter.setPen(QPen(QColor(255, 255, 255, 128), 3.0, Qt::DashLine));
     painter.setBrush(Qt::NoBrush);
     painter.drawRect(boundsRect);
 }
@@ -220,11 +220,7 @@ void MapViewport::drawCenterOverlay(QPainter& painter, QPointF viewCenter)
 
     QPointF screenPos = geoToScreen(m_center->longitude, m_center->latitude, viewCenter);
 
-    painter.setPen(Qt::NoPen);
-    painter.setBrush(QColor(220, 40, 40, 220));
-    painter.drawEllipse(screenPos, 6.0, 6.0);
-
-    painter.setPen(QPen(Qt::black, 1.5));
+    painter.setPen(QPen(QColor(255, 255, 255, 128), 3.0));
     painter.setBrush(Qt::NoBrush);
     painter.drawEllipse(screenPos, 6.0, 6.0);
 }
