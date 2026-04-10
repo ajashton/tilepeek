@@ -67,11 +67,10 @@ private slots:
         })");
 
         QVERIFY(result.metadata.has_value());
-        int warningCount = 0;
+        // Extra top-level keys should be silently accepted — neither MBTiles
+        // nor PMTiles specs disallow unspecified keys.
         for (const auto& msg : result.messages)
-            if (msg.level == ValidationMessage::Level::Warning)
-                warningCount++;
-        QCOMPARE(warningCount, 2);
+            QVERIFY(msg.level != ValidationMessage::Level::Warning);
     }
 
     void multipleLayersWithDetails()

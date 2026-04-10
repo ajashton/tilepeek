@@ -65,15 +65,6 @@ VectorMetadataResult VectorMetadataParser::parse(const QString& jsonString)
         meta.hasTilestats = true;
     }
 
-    // Warn about unexpected top-level keys
-    static const QSet<QString> knownKeys = {"vector_layers", "tilestats"};
-    for (auto it = obj.begin(); it != obj.end(); ++it) {
-        if (!knownKeys.contains(it.key())) {
-            result.messages.append({ValidationMessage::Level::Warning,
-                                    "Unexpected top-level key in JSON metadata: " + it.key()});
-        }
-    }
-
     result.metadata = std::move(meta);
     return result;
 }
