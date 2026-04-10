@@ -30,6 +30,7 @@ protected:
 
 private:
     void setupMenuBar();
+    void setupToolBar();
     void setupCentralWidget();
     void onOpenFile();
     void loadMBTiles(const QString& path);
@@ -52,6 +53,8 @@ private:
 
     QMenu* m_tileScaleMenu = nullptr;
     QActionGroup* m_tileScaleGroup = nullptr;
+    QAction* m_zoomInAction = nullptr;
+    QAction* m_zoomOutAction = nullptr;
     int m_nativeTileSize = 256;
     bool m_isVectorFormat = false;
 };

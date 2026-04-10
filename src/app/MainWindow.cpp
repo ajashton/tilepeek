@@ -25,6 +25,7 @@
 #include <QSettings>
 #include <QMimeData>
 #include <QSplitter>
+#include <QToolBar>
 #include <QStackedWidget>
 #include <QThread>
 
@@ -37,6 +38,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     setupCentralWidget();
     setupMenuBar();
+    setupToolBar();
 
     m_toastManager = new ToastManager(this);
 
@@ -108,6 +110,28 @@ void MainWindow::setupMenuBar()
         AboutDialog dlg(this);
         dlg.exec();
     });
+}
+
+void MainWindow::setupToolBar()
+{
+    auto* toolbar = addToolBar("Main");
+    toolbar->setMovable(false);
+
+    auto* openAction = toolbar->addAction(
+        QIcon::fromTheme("document-open"), "Open File...");
+    connect(openAction, &QAction::triggered, this, &MainWindow::onOpenFile);
+
+    toolbar->addSeparator();
+
+    m_zoomOutAction = toolbar->addAction(
+        QIcon::fromTheme("zoom-out"), "Zoom Out");
+    m_zoomOutAction->setEnabled(false);
+    connect(m_zoomOutAction, &QAction::triggered, m_mapViewport, &MapViewport::zoomOut);
+
+    m_zoomInAction = toolbar->addAction(
+        QIcon::fromTheme("zoom-in"), "Zoom In");
+    m_zoomInAction->setEnabled(false);
+    connect(m_zoomInAction, &QAction::triggered, m_mapViewport, &MapViewport::zoomIn);
 }
 
 void MainWindow::setupCentralWidget()
@@ -262,6 +286,8 @@ void MainWindow::loadMBTiles(const QString& path)
 
     m_mapViewport->setTileProvider(m_tileProvider.get());
     m_stack->setCurrentIndex(1);
+    m_zoomInAction->setEnabled(true);
+    m_zoomOutAction->setEnabled(true);
 
     // Pass bounds and center to viewport
     auto boundsOpt = MBTilesMetadataParser::parseBounds(metadata.value("bounds").value_or(""));
@@ -377,6 +403,8 @@ void MainWindow::loadPMTiles(const QString& path)
 
     m_mapViewport->setTileProvider(m_tileProvider.get());
     m_stack->setCurrentIndex(1);
+    m_zoomInAction->setEnabled(true);
+    m_zoomOutAction->setEnabled(true);
 
     // Pass bounds and center to viewport
     auto boundsOpt = MBTilesMetadataParser::parseBounds(metadata.value("bounds").value_or(""));
@@ -498,6 +526,8 @@ void MainWindow::clearCurrentFile()
     m_tileProvider.reset();
     m_sidebar->clear();
     m_stack->setCurrentWidget(m_emptyState);
+    m_zoomInAction->setEnabled(false);
+    m_zoomOutAction->setEnabled(false);
     m_toastManager->clearAll();
     m_tileScaleMenu->setEnabled(false);
     for (auto* action : m_tileScaleGroup->actions())

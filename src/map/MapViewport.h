@@ -19,6 +19,9 @@ public:
     void setView(double longitude, double latitude, int zoom);
     void clear();
 
+    void zoomIn();
+    void zoomOut();
+
     void setShowTileBoundaries(bool on);
     void setShowTileIds(bool on);
     void setShowTileSizes(bool on);

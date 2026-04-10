@@ -58,6 +58,26 @@ void MapViewport::clear()
     update();
 }
 
+void MapViewport::zoomIn()
+{
+    if (!m_provider || m_zoom >= m_provider->maxZoom())
+        return;
+    transitionZoom(m_zoom + 1);
+    m_scale = 1.0;
+    m_zoomSettleTimer.start();
+    update();
+}
+
+void MapViewport::zoomOut()
+{
+    if (!m_provider || m_zoom <= m_provider->minZoom())
+        return;
+    transitionZoom(m_zoom - 1);
+    m_scale = 1.0;
+    m_zoomSettleTimer.start();
+    update();
+}
+
 void MapViewport::setShowTileBoundaries(bool on) { m_showTileBoundaries = on; update(); }
 void MapViewport::setShowTileIds(bool on) { m_showTileIds = on; update(); }
 void MapViewport::setShowTileSizes(bool on) { m_showTileSizes = on; update(); }
