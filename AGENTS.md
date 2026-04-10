@@ -14,3 +14,12 @@ Performance and responsiveness are top priority for the user experience. Other h
   - Prioritize tests that capture tricky or hard-to-observe conditions/calculations
   - Prioritize testing parts of the code that are likely to be affected by future changes
   - Most real-world bug fixes should be accompanied by new or updated unit tests
+
+## Reference
+
+When dealing with MBTiles and PMTiles there are several specs you may need to refer to:
+
+- [MBTiles v1.3](https://raw.githubusercontent.com/mapbox/mbtiles-spec/refs/heads/master/1.3/spec.md)
+- [PMTiles v3](https://raw.githubusercontent.com/protomaps/PMTiles/refs/heads/main/spec/v3/spec.md)
+- [TileJSON v3](https://raw.githubusercontent.com/mapbox/tilejson-spec/master/3.0.0/README.md), specifically section 3.3 `vector_layers`
+- [Mapbox Vector Tile (MVT) v2.1](https://raw.githubusercontent.com/mapbox/vector-tile-spec/refs/heads/master/2.1/README.md)
