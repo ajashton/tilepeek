@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=TilePeek
+GenericName=Map Tile Viewer
+Comment=Preview and inspect MBTiles and PMTiles map tilesets
+Exec=tilepeek %f
+Icon=com.tilepeek.TilePeek
+Terminal=false
+Categories=Graphics;Viewer;DataVisualization;Qt;
+MimeType=application/vnd.mapbox.mbtiles;application/vnd.protomaps.pmtiles;
+Keywords=map;tiles;mbtiles;pmtiles;vector;raster;GIS;
+StartupWMClass=tilepeek

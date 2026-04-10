@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.tilepeek.TilePeek</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <name>TilePeek</name>
+  <summary>Preview and inspect MBTiles and PMTiles map tilesets</summary>
+  <description>
+    <p>
+      TilePeek is a lightweight desktop application for quickly previewing
+      and inspecting map tilesets stored in MBTiles and PMTiles container formats.
+      It supports raster tiles (PNG, JPEG, WebP) and vector tiles in Mapbox Vector
+      Tile (MVT) format, with tileset metadata and tile statistics display.
+    </p>
+    <p>
+      Designed for speed and simplicity, TilePeek lets you double-click a tileset
+      file and instantly see its contents without launching a full GIS application.
+    </p>
+  </description>
+  <launchable type="desktop-id">com.tilepeek.TilePeek.desktop</launchable>
+  <provides>
+    <mediatype>application/vnd.mapbox.mbtiles</mediatype>
+    <mediatype>application/vnd.protomaps.pmtiles</mediatype>
+  </provides>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.1.0" date="2026-04-09">
+      <description>
+        <p>Initial release.</p>
+      </description>
+    </release>
+  </releases>
+</component>
