@@ -2,7 +2,7 @@ find_package(ZLIB REQUIRED)
 
 configure_file(version.h.in ${CMAKE_CURRENT_BINARY_DIR}/version.h @ONLY)
 
-qt_add_resources(TILEPEEK_RESOURCES ${CMAKE_SOURCE_DIR}/icons/icons.qrc)
+qt_add_resources(TILEPEEK_RESOURCES ${CMAKE_SOURCE_DIR}/resources/icons/icons.qrc)
 
 add_library(tilepeek_lib STATIC
     app/AboutDialog.cpp
@@ -49,7 +49,7 @@ install(FILES ${CMAKE_SOURCE_DIR}/data/com.tilepeek.TilePeek.metainfo.xml
         DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo)
 install(FILES ${CMAKE_SOURCE_DIR}/data/com.tilepeek.TilePeek.mime.xml
         DESTINATION ${CMAKE_INSTALL_DATADIR}/mime/packages)
-install(FILES ${CMAKE_SOURCE_DIR}/icons/tilepeek.svg
+install(FILES ${CMAKE_SOURCE_DIR}/resources/icons/tilepeek.svg
         DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
         RENAME com.tilepeek.TilePeek.svg)
 
@@ -64,9 +64,9 @@ if(RSVG_CONVERT)
             OUTPUT ${OUTPUT_DIR}/com.tilepeek.TilePeek.png
             COMMAND ${CMAKE_COMMAND} -E make_directory ${OUTPUT_DIR}
             COMMAND ${RSVG_CONVERT} -w ${SIZE} -h ${SIZE}
-                ${CMAKE_SOURCE_DIR}/icons/tilepeek.svg
+                ${CMAKE_SOURCE_DIR}/resources/icons/tilepeek.svg
                 -o ${OUTPUT_DIR}/com.tilepeek.TilePeek.png
-            DEPENDS ${CMAKE_SOURCE_DIR}/icons/tilepeek.svg
+            DEPENDS ${CMAKE_SOURCE_DIR}/resources/icons/tilepeek.svg
             COMMENT "Generating ${SIZE}x${SIZE} icon"
         )
         list(APPEND ICON_FILES ${OUTPUT_DIR}/com.tilepeek.TilePeek.png)
