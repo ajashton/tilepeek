@@ -335,6 +335,8 @@ void MapViewport::mouseMoveEvent(QMouseEvent* event)
         m_centerPixel -= QPointF(delta) / (m_scale * displayScale());
         m_lastMousePos = event->pos();
         clampViewport();
+        if (m_crispScale != 0)
+            m_zoomSettleTimer.start();
         update();
         event->accept();
     }
