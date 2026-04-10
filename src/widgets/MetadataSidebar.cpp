@@ -15,6 +15,7 @@
 #include <QPainter>
 #include <QPlainTextEdit>
 #include <QScrollArea>
+#include <QTextLayout>
 #include <QTabWidget>
 #include <QToolButton>
 #include <QToolTip>
@@ -123,6 +124,84 @@ private:
     int64_t m_globalMax;
 };
 
+// QLabel's word wrap uses Qt::TextWordWrap which never breaks mid-word.
+// This subclass uses WrapAtWordBoundaryOrAnywhere so that long unbroken
+// words (URLs, hashes, etc.) break mid-word rather than overflowing.
+class WrappingLabel : public QLabel {
+public:
+    using QLabel::QLabel;
+
+    int heightForWidth(int w) const override
+    {
+        auto m = contentsMargins();
+        int textW = w - m.left() - m.right();
+        if (textW <= 0)
+            return QLabel::heightForWidth(w);
+
+        QTextLayout layout(text(), font());
+        QTextOption opt;
+        opt.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+        layout.setTextOption(opt);
+
+        layout.beginLayout();
+        qreal height = 0;
+        while (true) {
+            QTextLine line = layout.createLine();
+            if (!line.isValid())
+                break;
+            line.setLineWidth(textW);
+            height += line.leading() + line.height();
+        }
+        layout.endLayout();
+
+        return static_cast<int>(std::ceil(height)) + m.top() + m.bottom();
+    }
+
+    QSize minimumSizeHint() const override
+    {
+        return {0, QLabel::minimumSizeHint().height()};
+    }
+
+    QSize sizeHint() const override
+    {
+        QSize s = QLabel::sizeHint();
+        if (width() > 0)
+            s.setHeight(heightForWidth(width()));
+        return s;
+    }
+
+    bool hasHeightForWidth() const override { return true; }
+
+protected:
+    void paintEvent(QPaintEvent*) override
+    {
+        QPainter p(this);
+        p.setPen(palette().color(foregroundRole()));
+        p.setFont(font());
+
+        QTextLayout layout(text(), font());
+        QTextOption opt;
+        opt.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+        layout.setTextOption(opt);
+
+        auto m = contentsMargins();
+        qreal textW = width() - m.left() - m.right();
+
+        layout.beginLayout();
+        qreal y = m.top();
+        while (true) {
+            QTextLine line = layout.createLine();
+            if (!line.isValid())
+                break;
+            line.setLineWidth(textW);
+            line.setPosition(QPointF(m.left(), y));
+            y += line.leading() + line.height();
+        }
+        layout.endLayout();
+        layout.draw(&p, QPointF());
+    }
+};
+
 } // namespace
 
 MetadataSidebar::MetadataSidebar(QWidget* parent)
@@ -138,6 +217,7 @@ MetadataSidebar::MetadataSidebar(QWidget* parent)
     m_scrollArea = new QScrollArea(this);
     m_scrollArea->setWidgetResizable(true);
     m_scrollArea->setFrameShape(QFrame::NoFrame);
+    m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_outerLayout->addWidget(m_scrollArea);
 
     setMinimumWidth(260);
@@ -205,6 +285,7 @@ void MetadataSidebar::setVectorMetadata(const TilesetMetadata& metadata,
     auto* metaScroll = new QScrollArea;
     metaScroll->setWidgetResizable(true);
     metaScroll->setFrameShape(QFrame::NoFrame);
+    metaScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     metaScroll->setWidget(metaWidget);
     m_contentWidget = metaWidget;
     m_tabWidget->addTab(metaScroll, "Metadata");
@@ -214,6 +295,7 @@ void MetadataSidebar::setVectorMetadata(const TilesetMetadata& metadata,
     auto* layersScroll = new QScrollArea;
     layersScroll->setWidgetResizable(true);
     layersScroll->setFrameShape(QFrame::NoFrame);
+    layersScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     layersScroll->setWidget(layersWidget);
     m_tabWidget->addTab(layersScroll, "Layers");
 
@@ -223,6 +305,7 @@ void MetadataSidebar::setVectorMetadata(const TilesetMetadata& metadata,
         auto* statsScroll = new QScrollArea;
         statsScroll->setWidgetResizable(true);
         statsScroll->setFrameShape(QFrame::NoFrame);
+        statsScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         statsScroll->setWidget(statsWidget);
         m_tabWidget->addTab(statsScroll, "Stats");
     }
@@ -428,10 +511,9 @@ void MetadataSidebar::addSection(QVBoxLayout* layout, const QList<MetadataField>
         auto* nameLabel = new QLabel(field.name);
         nameLabel->setStyleSheet("font-weight: bold; color: #555;");
 
-        auto* valueLabel = new QLabel(field.value);
+        auto* valueLabel = new WrappingLabel(field.value);
         valueLabel->setWordWrap(true);
         valueLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-
         form->addRow(nameLabel, valueLabel);
     }
 
