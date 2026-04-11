@@ -570,14 +570,15 @@ void MapViewport::mouseReleaseEvent(QMouseEvent* event)
                     QPointF tileLocal = (QPointF(event->pos()) - tileRect.topLeft())
                                         / tileRect.width() * m_displayTileSize;
                     emit inspectRequested(m_focusedTile, tileLocal,
-                                          static_cast<double>(m_displayTileSize));
+                                          static_cast<double>(m_displayTileSize), m_scale);
                 }
             } else {
                 auto key = tileAtScreenPos(event->pos());
                 QRectF tileRect = tileScreenRect(key.x, key.y, viewCenter, scaledTileSize);
                 QPointF tileLocal = (QPointF(event->pos()) - tileRect.topLeft())
                                     / tileRect.width() * m_displayTileSize;
-                emit inspectRequested(key, tileLocal, static_cast<double>(m_displayTileSize));
+                emit inspectRequested(key, tileLocal, static_cast<double>(m_displayTileSize),
+                                      m_scale);
             }
         }
         event->accept();

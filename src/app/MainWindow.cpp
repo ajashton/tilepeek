@@ -577,7 +577,8 @@ void MainWindow::onLayerVisibilityChanged(const QSet<QString>& hiddenLayers)
     }
 }
 
-void MainWindow::onInspectRequested(TileKey tile, QPointF tileLocalPos, double tileSize)
+void MainWindow::onInspectRequested(TileKey tile, QPointF tileLocalPos, double tileSize,
+                                     double scale)
 {
     auto* vtp = dynamic_cast<VectorTileProvider*>(m_tileProvider.get());
     if (!vtp)
@@ -587,7 +588,11 @@ void MainWindow::onInspectRequested(TileKey tile, QPointF tileLocalPos, double t
     if (!decodedTile)
         return;
 
-    auto results = mvt::hitTest(*decodedTile, tileLocalPos, tileSize, 4.0,
+    // Convert screen-pixel radii to tile-local units
+    double hitRadius = 2.0 / scale;
+    double pointRadius = 3.0 / scale; // matches rendered dot radius
+
+    auto results = mvt::hitTest(*decodedTile, tileLocalPos, tileSize, hitRadius, pointRadius,
                                 vtp->hiddenLayers(), vtp->layerColors());
 
     if (results.isEmpty()) {

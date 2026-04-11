@@ -95,7 +95,7 @@ private slots:
     {
         auto tile = makeTileWithSquare();
         // Point at center of the polygon (128, 128) in tile-local coords (tileSize=512)
-        auto results = hitTest(tile, QPointF(128, 128), 512.0, 4.0,
+        auto results = hitTest(tile, QPointF(128, 128), 512.0, 4.0, 3.0,
                                {}, defaultColors());
         QCOMPARE(results.size(), 1);
         QCOMPARE(results[0].layerName, "test_layer");
@@ -110,7 +110,7 @@ private slots:
     {
         auto tile = makeTileWithSquare();
         // Point outside the polygon (400, 400) - the polygon covers [0, 256] in 512px tile
-        auto results = hitTest(tile, QPointF(400, 400), 512.0, 4.0,
+        auto results = hitTest(tile, QPointF(400, 400), 512.0, 4.0, 3.0,
                                {}, defaultColors());
         QCOMPARE(results.size(), 0);
     }
@@ -119,7 +119,7 @@ private slots:
     {
         auto tile = makeTileWithPoint();
         // Point at (1024, 1024) extent -> (128, 128) in 512px tile
-        auto results = hitTest(tile, QPointF(128, 128), 512.0, 4.0,
+        auto results = hitTest(tile, QPointF(128, 128), 512.0, 4.0, 3.0,
                                {}, defaultColors());
         QCOMPARE(results.size(), 1);
         QCOMPARE(results[0].layerName, "points");
@@ -130,7 +130,7 @@ private slots:
     {
         auto tile = makeTileWithPoint();
         // Point at (128, 128), clicking at (140, 128) = 12px away, beyond 4px radius
-        auto results = hitTest(tile, QPointF(140, 128), 512.0, 4.0,
+        auto results = hitTest(tile, QPointF(140, 128), 512.0, 4.0, 3.0,
                                {}, defaultColors());
         QCOMPARE(results.size(), 0);
     }
@@ -139,7 +139,7 @@ private slots:
     {
         auto tile = makeTileWithLine();
         // Line runs at y=256 in 512px tile (2048/4096*512). Click at (256, 256)
-        auto results = hitTest(tile, QPointF(256, 256), 512.0, 4.0,
+        auto results = hitTest(tile, QPointF(256, 256), 512.0, 4.0, 3.0,
                                {}, defaultColors());
         QCOMPARE(results.size(), 1);
         QCOMPARE(results[0].layerName, "lines");
@@ -149,7 +149,7 @@ private slots:
     {
         auto tile = makeTileWithLine();
         // Line at y=256, click at y=280 = 24px away
-        auto results = hitTest(tile, QPointF(256, 280), 512.0, 4.0,
+        auto results = hitTest(tile, QPointF(256, 280), 512.0, 4.0, 3.0,
                                {}, defaultColors());
         QCOMPARE(results.size(), 0);
     }
@@ -158,7 +158,7 @@ private slots:
     {
         auto tile = makeTileWithSquare();
         QSet<QString> hidden = {"test_layer"};
-        auto results = hitTest(tile, QPointF(128, 128), 512.0, 4.0,
+        auto results = hitTest(tile, QPointF(128, 128), 512.0, 4.0, 3.0,
                                hidden, defaultColors());
         QCOMPARE(results.size(), 0);
     }
@@ -207,7 +207,7 @@ private slots:
             {"foreground", QColor(255, 0, 0)}};
 
         // Click at center (256, 256) in 512px tile
-        auto results = hitTest(tile, QPointF(256, 256), 512.0, 4.0, {}, colors);
+        auto results = hitTest(tile, QPointF(256, 256), 512.0, 4.0, 3.0, {}, colors);
         QCOMPARE(results.size(), 2);
         // Foreground (last drawn) should come first in results
         QCOMPARE(results[0].layerName, "foreground");

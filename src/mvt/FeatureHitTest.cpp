@@ -2,7 +2,6 @@
 #include "mvt/MvtGeometry.h"
 
 #include <QPainterPathStroker>
-#include <cmath>
 
 namespace mvt {
 
@@ -45,7 +44,7 @@ static QVector<std::pair<QString, QString>> decodeProperties(const Feature& feat
 }
 
 static bool hitTestFeature(const Feature& feature, double extent, double tileSize,
-                           QPointF pos, double hitRadiusPx)
+                           QPointF pos, double hitRadiusPx, double pointRadiusPx)
 {
     switch (feature.type) {
     case GeomType::Polygon: {
@@ -64,7 +63,7 @@ static bool hitTestFeature(const Feature& feature, double extent, double tileSiz
     }
     case GeomType::Point: {
         auto points = decodePoints(feature, extent, tileSize);
-        double threshold = std::max(3.0, hitRadiusPx);
+        double threshold = std::max(pointRadiusPx, hitRadiusPx);
         double thresholdSq = threshold * threshold;
         for (const auto& pt : points) {
             double dx = pos.x() - pt.x();
@@ -83,6 +82,7 @@ QList<HitTestResult> hitTest(const Tile& tile,
                              QPointF tileLocalPos,
                              double tileSize,
                              double hitRadiusPx,
+                             double pointRadiusPx,
                              const QSet<QString>& hiddenLayers,
                              const std::unordered_map<std::string, QColor>& layerColors)
 {
@@ -107,7 +107,7 @@ QList<HitTestResult> hitTest(const Tile& tile,
             if (feature.type == GeomType::Unknown)
                 continue;
 
-            if (hitTestFeature(feature, extent, tileSize, tileLocalPos, hitRadiusPx)) {
+            if (hitTestFeature(feature, extent, tileSize, tileLocalPos, hitRadiusPx, pointRadiusPx)) {
                 HitTestResult result;
                 result.layerName = layerName;
                 result.layerColor = color;

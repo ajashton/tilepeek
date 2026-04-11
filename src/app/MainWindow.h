@@ -43,7 +43,7 @@ private:
     void clearCurrentFile();
     void onStatsReady(TileStatistics stats);
     void onLayerVisibilityChanged(const QSet<QString>& hiddenLayers);
-    void onInspectRequested(TileKey tile, QPointF tileLocalPos, double tileSize);
+    void onInspectRequested(TileKey tile, QPointF tileLocalPos, double tileSize, double scale);
     void onInspectCleared();
     void zoomToTilesetBounds();
     void onTileScaleChanged(QAction* action);

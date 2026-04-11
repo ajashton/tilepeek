@@ -63,7 +63,7 @@ protected:
 signals:
     void tileFocusChanged(bool active);
     void zoomChanged(int zoom);
-    void inspectRequested(TileKey tile, QPointF tileLocalPos, double tileSize);
+    void inspectRequested(TileKey tile, QPointF tileLocalPos, double tileSize, double scale);
     void inspectCleared();
 
 private:

@@ -36,6 +36,7 @@ QList<HitTestResult> hitTest(const Tile& tile,
                              QPointF tileLocalPos,
                              double tileSize,
                              double hitRadiusPx,
+                             double pointRadiusPx,
                              const QSet<QString>& hiddenLayers,
                              const std::unordered_map<std::string, QColor>& layerColors);
 
