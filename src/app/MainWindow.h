@@ -13,7 +13,6 @@ class MapViewport;
 class MetadataSidebar;
 class TileProvider;
 class TileStatsWorker;
-class ToastManager;
 class QActionGroup;
 class QMenu;
 class QSlider;
@@ -52,7 +51,6 @@ private:
 
     MapViewport* m_mapViewport = nullptr;
     MetadataSidebar* m_sidebar = nullptr;
-    ToastManager* m_toastManager = nullptr;
     EmptyStateWidget* m_emptyState = nullptr;
     QStackedWidget* m_stack = nullptr;
     std::unique_ptr<TileProvider> m_tileProvider;

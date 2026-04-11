@@ -16,7 +16,6 @@
 #include "util/CetColormap.h"
 #include "widgets/EmptyStateWidget.h"
 #include "widgets/MetadataSidebar.h"
-#include "widgets/ToastManager.h"
 
 #include <QAction>
 #include <QActionGroup>
@@ -25,6 +24,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMenuBar>
+#include <QMessageBox>
 #include <QSettings>
 #include <QMimeData>
 #include <QSlider>
@@ -43,8 +43,6 @@ MainWindow::MainWindow(QWidget* parent)
     setupCentralWidget();
     setupMenuBar();
     setupToolBar();
-
-    m_toastManager = new ToastManager(this);
 
     qRegisterMetaType<TileStatistics>("TileStatistics");
 }
@@ -236,28 +234,20 @@ void MainWindow::loadMBTiles(const QString& path)
 
     auto reader = std::make_unique<MBTilesReader>(path);
     if (!reader->open()) {
-        m_toastManager->showError("Failed to open file: " + path);
+        QMessageBox::warning(this, "Error", "Failed to open file: " + path);
         return;
     }
 
     auto validation = reader->validateSchema();
-    for (const auto& error : validation.errors)
-        m_toastManager->showError(error);
-
-    if (!validation.metadataTableValid || !validation.tilesTableValid)
+    if (!validation.metadataTableValid || !validation.tilesTableValid) {
+        QMessageBox::warning(this, "Error", validation.errors.join("\n"));
         return;
+    }
 
     auto rawMetadata = reader->readRawMetadata();
     auto zoomRange = reader->queryZoomRange();
 
     auto [metadata, messages] = MBTilesMetadataParser::parse(rawMetadata, zoomRange);
-
-    for (const auto& msg : messages) {
-        if (msg.level == ValidationMessage::Level::Error)
-            m_toastManager->showError(msg.text);
-        else
-            m_toastManager->showWarning(msg.text);
-    }
 
     // Extract format and zoom range
     auto formatOpt = metadata.value("format");
@@ -295,24 +285,20 @@ void MainWindow::loadMBTiles(const QString& path)
         QStringList layerNames;
         auto jsonStr = metadata.value("json");
         if (!jsonStr) {
-            m_toastManager->showError("Missing required 'json' metadata key for pbf format");
-            m_sidebar->setMetadata(metadata);
+            messages.append({ValidationMessage::Level::Error,
+                             "Missing required 'json' metadata key for pbf format", "json"});
+            m_sidebar->setMetadata(metadata, messages);
         } else {
             auto vResult = VectorMetadataParser::parse(*jsonStr);
-            for (const auto& vmsg : vResult.messages) {
-                if (vmsg.level == ValidationMessage::Level::Error)
-                    m_toastManager->showError(vmsg.text);
-                else
-                    m_toastManager->showWarning(vmsg.text);
-            }
+            messages.append(vResult.messages);
             if (vResult.metadata) {
                 for (const auto& layer : vResult.metadata->vectorLayers)
                     layerNames << layer.id;
                 auto colors = CetColormap::pickColors(layerNames.size());
                 QList<QColor> colorList(colors.begin(), colors.end());
-                m_sidebar->setVectorMetadata(metadata, *vResult.metadata, colorList);
+                m_sidebar->setVectorMetadata(metadata, *vResult.metadata, colorList, messages);
             } else {
-                m_sidebar->setMetadata(metadata);
+                m_sidebar->setMetadata(metadata, messages);
             }
         }
 
@@ -341,23 +327,19 @@ void MainWindow::loadMBTiles(const QString& path)
         auto formatResult = provider->validateFormat();
         switch (formatResult.status) {
         case FormatValidationResult::Status::Unsupported:
-            m_toastManager->showError(formatResult.message);
-            m_sidebar->setMetadata(metadata);
-            setWindowTitle("TilePeek - " + QFileInfo(path).fileName());
+            QMessageBox::warning(this, "Error", formatResult.message);
             return;
         case FormatValidationResult::Status::UnrecognizedFormat:
-            m_toastManager->showError(formatResult.message);
-            m_sidebar->setMetadata(metadata);
-            setWindowTitle("TilePeek - " + QFileInfo(path).fileName());
+            QMessageBox::warning(this, "Error", formatResult.message);
             return;
         case FormatValidationResult::Status::FormatMismatch:
-            m_toastManager->showWarning(formatResult.message);
+            messages.append({ValidationMessage::Level::Warning, formatResult.message, "format"});
             break;
         case FormatValidationResult::Status::Ok:
             break;
         }
 
-        m_sidebar->setMetadata(metadata);
+        m_sidebar->setMetadata(metadata, messages);
         m_nativeTileSize = provider->detectNativeTileSize();
         m_mapViewport->setDisplayTileSize(m_nativeTileSize);
         m_tileProvider = std::move(provider);
@@ -412,26 +394,19 @@ void MainWindow::loadPMTiles(const QString& path)
 
     auto reader = std::make_unique<PMTilesReader>(path);
     if (!reader->open()) {
-        m_toastManager->showError("Failed to open file: " + path);
+        QMessageBox::warning(this, "Error", "Failed to open file: " + path);
         return;
     }
 
     auto validation = reader->validate();
-    for (const auto& error : validation.errors)
-        m_toastManager->showError(error);
-    if (!validation.valid)
+    if (!validation.valid) {
+        QMessageBox::warning(this, "Error", validation.errors.join("\n"));
         return;
+    }
 
     const auto& header = reader->header();
     auto jsonMeta = reader->readJsonMetadata();
     auto [metadata, messages] = PMTilesMetadataParser::parse(header, jsonMeta);
-
-    for (const auto& msg : messages) {
-        if (msg.level == ValidationMessage::Level::Error)
-            m_toastManager->showError(msg.text);
-        else
-            m_toastManager->showWarning(msg.text);
-    }
 
     QString format = PMTilesMetadataParser::tileTypeToFormat(header.tile_type);
     int minZoom = header.min_zoom;
@@ -464,24 +439,20 @@ void MainWindow::loadPMTiles(const QString& path)
         auto jsonStr = metadata.value("json");
         if (!jsonStr) {
             if (!jsonMeta.isEmpty())
-                m_toastManager->showWarning("No vector_layers found in PMTiles metadata");
-            m_sidebar->setMetadata(metadata);
+                messages.append({ValidationMessage::Level::Warning,
+                                 "No vector_layers found in PMTiles metadata"});
+            m_sidebar->setMetadata(metadata, messages);
         } else {
             auto vResult = VectorMetadataParser::parse(*jsonStr);
-            for (const auto& vmsg : vResult.messages) {
-                if (vmsg.level == ValidationMessage::Level::Error)
-                    m_toastManager->showError(vmsg.text);
-                else
-                    m_toastManager->showWarning(vmsg.text);
-            }
+            messages.append(vResult.messages);
             if (vResult.metadata) {
                 for (const auto& layer : vResult.metadata->vectorLayers)
                     layerNames << layer.id;
                 auto colors = CetColormap::pickColors(layerNames.size());
                 QList<QColor> colorList(colors.begin(), colors.end());
-                m_sidebar->setVectorMetadata(metadata, *vResult.metadata, colorList);
+                m_sidebar->setVectorMetadata(metadata, *vResult.metadata, colorList, messages);
             } else {
-                m_sidebar->setMetadata(metadata);
+                m_sidebar->setMetadata(metadata, messages);
             }
         }
 
@@ -507,7 +478,7 @@ void MainWindow::loadPMTiles(const QString& path)
         auto provider = std::make_unique<RasterTileProvider>(
             std::move(reader), format, minZoom, maxZoom);
 
-        m_sidebar->setMetadata(metadata);
+        m_sidebar->setMetadata(metadata, messages);
         m_nativeTileSize = provider->detectNativeTileSize();
         m_mapViewport->setDisplayTileSize(m_nativeTileSize);
         m_tileProvider = std::move(provider);
@@ -725,7 +696,6 @@ void MainWindow::clearCurrentFile()
     m_tileFocusAction->setEnabled(false);
     m_tileFocusAction->setVisible(false);
     m_tileFocusAction->setChecked(false);
-    m_toastManager->clearAll();
     m_tileScaleMenu->setEnabled(false);
     for (auto* action : m_tileScaleGroup->actions())
         m_tileScaleGroup->removeAction(action);

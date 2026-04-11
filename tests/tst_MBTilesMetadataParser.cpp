@@ -169,7 +169,7 @@ private slots:
         // Should warn about maxzoom mismatch
         bool hasZoomWarning = false;
         for (const auto& msg : result.messages) {
-            if (msg.text.contains("maxzoom") && msg.text.contains("does not match"))
+            if (msg.field == "maxzoom" && msg.text.contains("Does not match"))
                 hasZoomWarning = true;
         }
         QVERIFY(hasZoomWarning);
@@ -190,7 +190,7 @@ private slots:
 
         bool hasBoundsError = false;
         for (const auto& msg : result.messages) {
-            if (msg.level == ValidationMessage::Level::Error && msg.text.contains("bounds"))
+            if (msg.level == ValidationMessage::Level::Error && msg.field == "bounds")
                 hasBoundsError = true;
         }
         QVERIFY(hasBoundsError);

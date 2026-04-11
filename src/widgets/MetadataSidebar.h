@@ -1,5 +1,6 @@
 #pragma once
 
+#include "mbtiles/MBTilesMetadataParser.h"
 #include "model/TilesetMetadata.h"
 #include "mvt/FeatureHitTest.h"
 
@@ -24,9 +25,11 @@ class MetadataSidebar : public QWidget {
 public:
     explicit MetadataSidebar(QWidget* parent = nullptr);
 
-    void setMetadata(const TilesetMetadata& metadata);
+    void setMetadata(const TilesetMetadata& metadata,
+                     const QList<ValidationMessage>& messages = {});
     void setVectorMetadata(const TilesetMetadata& metadata, const VectorMetadata& vectorMeta,
-                           const QList<QColor>& layerColors);
+                           const QList<QColor>& layerColors,
+                           const QList<ValidationMessage>& messages = {});
     void setStatsPlaceholder();
     void setTileStatistics(const TileStatistics& stats);
     void setInspectResults(const QList<mvt::HitTestResult>& results);
@@ -41,9 +44,14 @@ private slots:
     void onLayerCheckboxToggled();
 
 private:
-    void addSection(QVBoxLayout* layout, const QList<MetadataField>& fields, bool addSeparator);
+    void addSection(QVBoxLayout* layout, const QList<MetadataField>& fields,
+                    const QList<MetadataField>& missingFields, bool addSeparator,
+                    const QList<ValidationMessage>& messages);
+    void addGeneralWarnings(QVBoxLayout* layout, const QList<ValidationMessage>& messages,
+                            const QSet<QString>& visibleFields);
     void clearStatsSection();
-    QWidget* buildMetadataWidget(const TilesetMetadata& metadata, bool skipJson);
+    QWidget* buildMetadataWidget(const TilesetMetadata& metadata, bool skipJson,
+                                 const QList<ValidationMessage>& messages);
     QWidget* buildLayersWidget(const QList<VectorLayerInfo>& layers, const QList<QColor>& layerColors);
     QWidget* buildTilestatsWidget(const QJsonObject& tilestats);
     QWidget* buildInspectWidget(const QList<mvt::HitTestResult>& results);

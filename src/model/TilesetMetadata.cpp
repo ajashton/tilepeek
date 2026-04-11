@@ -1,5 +1,25 @@
 #include "model/TilesetMetadata.h"
 
+#include <QMap>
+
+FieldCategory categorizeFieldName(const QString& name)
+{
+    static const QMap<QString, FieldCategory> map = {
+        {"name", FieldCategory::Required},
+        {"format", FieldCategory::Required},
+        {"bounds", FieldCategory::Recommended},
+        {"center", FieldCategory::Recommended},
+        {"minzoom", FieldCategory::Recommended},
+        {"maxzoom", FieldCategory::Recommended},
+        {"attribution", FieldCategory::Standard},
+        {"description", FieldCategory::Standard},
+        {"type", FieldCategory::Standard},
+        {"version", FieldCategory::Standard},
+        {"json", FieldCategory::Standard},
+    };
+    return map.value(name, FieldCategory::NonStandard);
+}
+
 void TilesetMetadata::addField(const QString& name, const QString& value, FieldCategory category)
 {
     m_fields.append({name, value, category});

@@ -17,6 +17,8 @@ struct MetadataField {
     FieldCategory category;
 };
 
+FieldCategory categorizeFieldName(const QString& name);
+
 class TilesetMetadata {
 public:
     void addField(const QString& name, const QString& value, FieldCategory category);

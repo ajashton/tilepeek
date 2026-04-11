@@ -27,8 +27,6 @@ add_library(tilepeek_lib STATIC
     stats/TileStatsWorker.cpp
     widgets/MetadataSidebar.cpp
     widgets/EmptyStateWidget.cpp
-    widgets/ToastManager.cpp
-    widgets/ToastWidget.cpp
     util/FormatUtils.cpp
     util/GzipUtils.cpp
     util/TileCoords.cpp

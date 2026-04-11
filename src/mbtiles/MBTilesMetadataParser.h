@@ -11,6 +11,7 @@ struct ValidationMessage {
     enum class Level { Error, Warning };
     Level level;
     QString text;
+    QString field; // metadata field name this message relates to (empty = general)
 };
 
 struct ParsedBounds {

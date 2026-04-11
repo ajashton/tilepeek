@@ -8,6 +8,7 @@
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QFrame>
+#include <QIcon>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
@@ -253,11 +254,12 @@ void MetadataSidebar::clear()
     m_header->show();
 }
 
-void MetadataSidebar::setMetadata(const TilesetMetadata& metadata)
+void MetadataSidebar::setMetadata(const TilesetMetadata& metadata,
+                                   const QList<ValidationMessage>& messages)
 {
     clear();
 
-    m_contentWidget = buildMetadataWidget(metadata, false);
+    m_contentWidget = buildMetadataWidget(metadata, false, messages);
     m_contentLayout = qobject_cast<QVBoxLayout*>(m_contentWidget->layout());
 
     // Reserve space for stats section
@@ -270,7 +272,8 @@ void MetadataSidebar::setMetadata(const TilesetMetadata& metadata)
 
 void MetadataSidebar::setVectorMetadata(const TilesetMetadata& metadata,
                                          const VectorMetadata& vectorMeta,
-                                         const QList<QColor>& layerColors)
+                                         const QList<QColor>& layerColors,
+                                         const QList<ValidationMessage>& messages)
 {
     clear();
 
@@ -283,7 +286,7 @@ void MetadataSidebar::setVectorMetadata(const TilesetMetadata& metadata,
     m_outerLayout->addWidget(m_tabWidget);
 
     // Metadata tab (skips the json field)
-    auto* metaWidget = buildMetadataWidget(metadata, true);
+    auto* metaWidget = buildMetadataWidget(metadata, true, messages);
     m_contentLayout = qobject_cast<QVBoxLayout*>(metaWidget->layout());
     m_statsLayout = new QVBoxLayout;
     m_contentLayout->addLayout(m_statsLayout);
@@ -320,11 +323,32 @@ void MetadataSidebar::setVectorMetadata(const TilesetMetadata& metadata,
     m_rawJson = vectorMeta.rawJson;
 }
 
-QWidget* MetadataSidebar::buildMetadataWidget(const TilesetMetadata& metadata, bool skipJson)
+QWidget* MetadataSidebar::buildMetadataWidget(const TilesetMetadata& metadata, bool skipJson,
+                                               const QList<ValidationMessage>& messages)
 {
     auto* widget = new QWidget;
     auto* layout = new QVBoxLayout(widget);
     layout->setContentsMargins(8, 4, 8, 8);
+
+    // Collect visible field names and message-referenced fields
+    QSet<QString> visibleFields;
+    QSet<QString> messageFields;
+    for (const auto& f : metadata.fields()) {
+        if (skipJson && f.name == "json")
+            continue;
+        visibleFields.insert(f.name);
+    }
+    for (const auto& msg : messages) {
+        if (!msg.field.isEmpty()) {
+            messageFields.insert(msg.field);
+            // Missing fields that will get placeholder rows count as visible
+            if (!(skipJson && msg.field == "json"))
+                visibleFields.insert(msg.field);
+        }
+    }
+
+    // Show general warnings (empty field, or field hidden by skipJson)
+    addGeneralWarnings(layout, messages, visibleFields);
 
     static constexpr FieldCategory categories[] = {
         FieldCategory::Required,
@@ -339,9 +363,20 @@ QWidget* MetadataSidebar::buildMetadataWidget(const TilesetMetadata& metadata, b
         if (skipJson) {
             fields.removeIf([](const MetadataField& f) { return f.name == "json"; });
         }
-        if (fields.isEmpty())
+
+        // Find missing fields for this category (referenced by messages but not in metadata)
+        QList<MetadataField> missingFields;
+        for (const auto& fieldName : messageFields) {
+            if (!metadata.hasField(fieldName) && categorizeFieldName(fieldName) == category) {
+                if (skipJson && fieldName == "json")
+                    continue;
+                missingFields.append({fieldName, QString(), category});
+            }
+        }
+
+        if (fields.isEmpty() && missingFields.isEmpty())
             continue;
-        addSection(layout, fields, !firstSection);
+        addSection(layout, fields, missingFields, !firstSection, messages);
         firstSection = false;
     }
 
@@ -521,7 +556,9 @@ void MetadataSidebar::showJsonWindow()
 }
 
 void MetadataSidebar::addSection(QVBoxLayout* layout, const QList<MetadataField>& fields,
-                                  bool addSeparator)
+                                  const QList<MetadataField>& missingFields,
+                                  bool addSeparator,
+                                  const QList<ValidationMessage>& messages)
 {
     if (addSeparator) {
         auto* line = new QFrame;
@@ -536,6 +573,38 @@ void MetadataSidebar::addSection(QVBoxLayout* layout, const QList<MetadataField>
     form->setVerticalSpacing(6);
     form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
 
+    // Helper to collect messages for a field and create an icon widget
+    auto makeFieldRow = [&](const QString& fieldName, QWidget* valueWidget) {
+        QStringList fieldMessages;
+        auto worstLevel = ValidationMessage::Level::Warning;
+        for (const auto& msg : messages) {
+            if (msg.field == fieldName) {
+                fieldMessages.append(msg.text);
+                if (msg.level == ValidationMessage::Level::Error)
+                    worstLevel = ValidationMessage::Level::Error;
+            }
+        }
+
+        if (fieldMessages.isEmpty())
+            return valueWidget;
+
+        auto* rowWidget = new QWidget;
+        auto* rowLayout = new QHBoxLayout(rowWidget);
+        rowLayout->setContentsMargins(0, 0, 0, 0);
+        rowLayout->setSpacing(4);
+        rowLayout->addWidget(valueWidget, 1);
+
+        auto* icon = new QLabel;
+        QString iconName = (worstLevel == ValidationMessage::Level::Error)
+                               ? "data-error" : "data-warning";
+        icon->setPixmap(QIcon::fromTheme(iconName).pixmap(16, 16));
+        icon->setFixedSize(16, 16);
+        icon->setToolTip(fieldMessages.join("\n"));
+        rowLayout->addWidget(icon, 0, Qt::AlignTop);
+
+        return static_cast<QWidget*>(rowWidget);
+    };
+
     for (const auto& field : fields) {
         auto* nameLabel = new QLabel(field.name);
         nameLabel->setStyleSheet("font-weight: bold; color: #555;");
@@ -543,10 +612,56 @@ void MetadataSidebar::addSection(QVBoxLayout* layout, const QList<MetadataField>
         auto* valueLabel = new WrappingLabel(field.value);
         valueLabel->setWordWrap(true);
         valueLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-        form->addRow(nameLabel, valueLabel);
+
+        form->addRow(nameLabel, makeFieldRow(field.name, valueLabel));
+    }
+
+    // Missing field placeholders
+    for (const auto& missing : missingFields) {
+        auto* nameLabel = new QLabel(missing.name);
+        nameLabel->setStyleSheet("font-weight: bold; color: #555;");
+
+        auto* valueLabel = new WrappingLabel("missing");
+        valueLabel->setStyleSheet("font-style: italic;");
+        setSubduedTextColor(valueLabel);
+
+        form->addRow(nameLabel, makeFieldRow(missing.name, valueLabel));
     }
 
     layout->addLayout(form);
+}
+
+void MetadataSidebar::addGeneralWarnings(QVBoxLayout* layout,
+                                          const QList<ValidationMessage>& messages,
+                                          const QSet<QString>& visibleFields)
+{
+    QList<ValidationMessage> general;
+    for (const auto& msg : messages) {
+        if (msg.field.isEmpty() || !visibleFields.contains(msg.field))
+            general.append(msg);
+    }
+    if (general.isEmpty())
+        return;
+
+    for (const auto& msg : general) {
+        auto* row = new QHBoxLayout;
+        row->setContentsMargins(8, 2, 8, 2);
+        row->setSpacing(6);
+
+        auto* icon = new QLabel;
+        QString iconName = (msg.level == ValidationMessage::Level::Error)
+                               ? "data-error" : "data-warning";
+        icon->setPixmap(QIcon::fromTheme(iconName).pixmap(16, 16));
+        icon->setFixedSize(16, 16);
+
+        auto* text = new WrappingLabel(msg.text);
+        text->setWordWrap(true);
+        setSubduedTextColor(text);
+
+        row->addWidget(icon, 0, Qt::AlignTop);
+        row->addWidget(text, 1);
+        layout->addLayout(row);
+    }
 }
 
 void MetadataSidebar::clearStatsSection()

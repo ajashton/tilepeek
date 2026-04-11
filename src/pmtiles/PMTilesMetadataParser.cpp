@@ -34,7 +34,7 @@ PMTilesMetadataParser::Result PMTilesMetadataParser::parse(
 
     if (format == "unknown")
         result.messages.append({ValidationMessage::Level::Warning,
-                                "Unknown tile type in PMTiles header"});
+                                "Unknown tile type in header", "format"});
 
     // Zoom range from header
     meta.addField("minzoom", QString::number(header.min_zoom), FieldCategory::Recommended);
@@ -69,7 +69,7 @@ PMTilesMetadataParser::Result PMTilesMetadataParser::parse(
 
         if (parseError.error != QJsonParseError::NoError) {
             result.messages.append({ValidationMessage::Level::Error,
-                                    "Failed to parse PMTiles JSON metadata: " + parseError.errorString()});
+                                    "Failed to parse JSON metadata: " + parseError.errorString()});
         } else if (doc.isObject()) {
             auto obj = doc.object();
 
@@ -98,7 +98,7 @@ PMTilesMetadataParser::Result PMTilesMetadataParser::parse(
     // Name field is recommended
     if (!meta.hasField("name"))
         result.messages.append({ValidationMessage::Level::Warning,
-                                "Missing recommended 'name' field in metadata"});
+                                "Missing recommended field", "name"});
 
     return result;
 }

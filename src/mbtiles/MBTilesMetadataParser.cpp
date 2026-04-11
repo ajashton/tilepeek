@@ -1,23 +1,8 @@
 #include "mbtiles/MBTilesMetadataParser.h"
 
-#include <QMap>
-
-static const QMap<QString, FieldCategory> s_fieldCategories = {
-    {"name", FieldCategory::Required},
-    {"format", FieldCategory::Required},
-    {"bounds", FieldCategory::Recommended},
-    {"center", FieldCategory::Recommended},
-    {"minzoom", FieldCategory::Recommended},
-    {"maxzoom", FieldCategory::Recommended},
-    {"attribution", FieldCategory::Standard},
-    {"description", FieldCategory::Standard},
-    {"type", FieldCategory::Standard},
-    {"version", FieldCategory::Standard},
-};
-
 FieldCategory MBTilesMetadataParser::categorize(const QString& name)
 {
-    return s_fieldCategories.value(name, FieldCategory::NonStandard);
+    return categorizeFieldName(name);
 }
 
 std::optional<ParsedBounds> MBTilesMetadataParser::parseBounds(const QString& value)
@@ -79,11 +64,11 @@ MBTilesMetadataParser::parse(const QList<std::pair<QString, QString>>& rawMetada
     // Check required fields
     if (!result.metadata.hasField("name")) {
         result.messages.append(
-            {ValidationMessage::Level::Error, "Missing required metadata field: name"});
+            {ValidationMessage::Level::Error, "Missing required metadata field", "name"});
     }
     if (!result.metadata.hasField("format")) {
         result.messages.append(
-            {ValidationMessage::Level::Error, "Missing required metadata field: format"});
+            {ValidationMessage::Level::Error, "Missing required metadata field", "format"});
     }
 
     // Validate bounds
@@ -92,17 +77,17 @@ MBTilesMetadataParser::parse(const QList<std::pair<QString, QString>>& rawMetada
         auto bounds = parseBounds(*boundsVal);
         if (!bounds) {
             result.messages.append({ValidationMessage::Level::Error,
-                                    "Cannot parse 'bounds' as comma-separated numbers"});
+                                    "Cannot parse as comma-separated numbers", "bounds"});
         } else {
             if (!isLongitudeInRange(bounds->left) || !isLongitudeInRange(bounds->right)) {
                 result.messages.append(
                     {ValidationMessage::Level::Warning,
-                     "Bounds longitude values are outside valid range (±180.0)"});
+                     "Longitude values are outside valid range (\u00b1180.0)", "bounds"});
             }
             if (!isLatitudeInRange(bounds->bottom) || !isLatitudeInRange(bounds->top)) {
                 result.messages.append(
                     {ValidationMessage::Level::Warning,
-                     "Bounds latitude values are outside valid range (±85.051129)"});
+                     "Latitude values are outside valid range (\u00b185.051129)", "bounds"});
             }
         }
     }
@@ -113,17 +98,17 @@ MBTilesMetadataParser::parse(const QList<std::pair<QString, QString>>& rawMetada
         auto center = parseCenter(*centerVal);
         if (!center) {
             result.messages.append({ValidationMessage::Level::Error,
-                                    "Cannot parse 'center' as comma-separated numbers"});
+                                    "Cannot parse as comma-separated numbers", "center"});
         } else {
             if (!isLongitudeInRange(center->longitude)) {
                 result.messages.append(
                     {ValidationMessage::Level::Warning,
-                     "Center longitude is outside valid range (±180.0)"});
+                     "Longitude is outside valid range (\u00b1180.0)", "center"});
             }
             if (!isLatitudeInRange(center->latitude)) {
                 result.messages.append(
                     {ValidationMessage::Level::Warning,
-                     "Center latitude is outside valid range (±85.051129)"});
+                     "Latitude is outside valid range (\u00b185.051129)", "center"});
             }
         }
     }
@@ -131,37 +116,32 @@ MBTilesMetadataParser::parse(const QList<std::pair<QString, QString>>& rawMetada
     // Validate and compute minzoom/maxzoom
     auto minzoomVal = result.metadata.value("minzoom");
     auto maxzoomVal = result.metadata.value("maxzoom");
-    bool missingRecommended = false;
 
     if (!minzoomVal) {
-        missingRecommended = true;
         if (tilesZoomRange) {
             result.metadata.addField(
                 "minzoom", QString::number(tilesZoomRange->minZoom), FieldCategory::Recommended);
         }
     }
     if (!maxzoomVal) {
-        missingRecommended = true;
         if (tilesZoomRange) {
             result.metadata.addField(
                 "maxzoom", QString::number(tilesZoomRange->maxZoom), FieldCategory::Recommended);
         }
     }
 
-    if (!boundsVal || !centerVal || !minzoomVal || !maxzoomVal) {
-        QStringList missing;
-        if (!boundsVal)
-            missing.append("bounds");
-        if (!centerVal)
-            missing.append("center");
-        if (!minzoomVal)
-            missing.append("minzoom");
-        if (!maxzoomVal)
-            missing.append("maxzoom");
+    if (!boundsVal)
         result.messages.append(
-            {ValidationMessage::Level::Warning,
-             "Missing recommended metadata fields: " + missing.join(", ")});
-    }
+            {ValidationMessage::Level::Warning, "Missing recommended field", "bounds"});
+    if (!centerVal)
+        result.messages.append(
+            {ValidationMessage::Level::Warning, "Missing recommended field", "center"});
+    if (!minzoomVal)
+        result.messages.append(
+            {ValidationMessage::Level::Warning, "Missing recommended field", "minzoom"});
+    if (!maxzoomVal)
+        result.messages.append(
+            {ValidationMessage::Level::Warning, "Missing recommended field", "maxzoom"});
 
     // Check minzoom/maxzoom against tiles table
     if (tilesZoomRange) {
@@ -171,9 +151,9 @@ MBTilesMetadataParser::parse(const QList<std::pair<QString, QString>>& rawMetada
             if (ok && minzoom != tilesZoomRange->minZoom) {
                 result.messages.append(
                     {ValidationMessage::Level::Warning,
-                     QString("Metadata minzoom (%1) does not match tiles table (%2)")
-                         .arg(minzoom)
-                         .arg(tilesZoomRange->minZoom)});
+                     QString("Does not match tiles table (%1)")
+                         .arg(tilesZoomRange->minZoom),
+                     "minzoom"});
             }
         }
         if (maxzoomVal) {
@@ -182,9 +162,9 @@ MBTilesMetadataParser::parse(const QList<std::pair<QString, QString>>& rawMetada
             if (ok && maxzoom != tilesZoomRange->maxZoom) {
                 result.messages.append(
                     {ValidationMessage::Level::Warning,
-                     QString("Metadata maxzoom (%1) does not match tiles table (%2)")
-                         .arg(maxzoom)
-                         .arg(tilesZoomRange->maxZoom)});
+                     QString("Does not match tiles table (%1)")
+                         .arg(tilesZoomRange->maxZoom),
+                     "maxzoom"});
             }
         }
     }
