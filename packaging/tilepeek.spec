@@ -1,5 +1,5 @@
 Name:           tilepeek
-Version:        0.1.0
+Version:        0.7.0
 Release:        1%{?dist}
 Summary:        Preview and inspect MBTiles and PMTiles map tilesets
 License:        MIT

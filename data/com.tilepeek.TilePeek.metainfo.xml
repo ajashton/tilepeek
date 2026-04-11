@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <component type="desktop-application">
   <id>com.tilepeek.TilePeek</id>
   <metadata_license>MIT</metadata_license>
@@ -24,9 +24,16 @@
   </provides>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.7.0" date="2026-04-10">
+      <description>
+        <p
+        >First public preview, with focus mode for vector tiles to inspect individual tiles, including out-of-bounds buffer data.</p>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-04-09">
       <description>
-        <p>Initial release.</p>
+        <p
+        >Initial development version with basic support for viewing raster &amp; vector tilesets in MBTiles and PMTiles formats.</p>
       </description>
     </release>
   </releases>
