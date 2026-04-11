@@ -1,6 +1,7 @@
 #pragma once
 
 #include "map/TileCache.h"
+#include "mbtiles/MBTilesMetadataParser.h"
 
 #include <QMainWindow>
 #include <QPointF>
@@ -44,6 +45,7 @@ private:
     void onLayerVisibilityChanged(const QSet<QString>& hiddenLayers);
     void onInspectRequested(TileKey tile, QPointF tileLocalPos, double tileSize);
     void onInspectCleared();
+    void zoomToTilesetBounds();
     void onTileScaleChanged(QAction* action);
     void populateTileScaleMenu(bool isVector);
     void stopStatsThread();
@@ -61,8 +63,10 @@ private:
     QActionGroup* m_tileScaleGroup = nullptr;
     QAction* m_zoomInAction = nullptr;
     QAction* m_zoomOutAction = nullptr;
+    QAction* m_zoomToBoundsAction = nullptr;
     QAction* m_tileFocusAction = nullptr;
     QSlider* m_zoomSlider = nullptr;
     int m_nativeTileSize = 256;
     bool m_isVectorFormat = false;
+    std::optional<ParsedBounds> m_tilesetBounds;
 };

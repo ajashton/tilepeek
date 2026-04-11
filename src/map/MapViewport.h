@@ -23,6 +23,7 @@ public:
     void zoomIn();
     void zoomOut();
     void setZoom(int zoom);
+    void zoomToBounds(double left, double bottom, double right, double top);
     int currentZoom() const { return m_zoom; }
 
     void setTileFocusSelecting(bool on);

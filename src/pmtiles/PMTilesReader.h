@@ -28,6 +28,11 @@ public:
     PMTilesValidationResult validate() const;
     QString readJsonMetadata() const;
 
+    struct TileGridBounds {
+        int minX, minY, maxX, maxY;
+    };
+    std::optional<TileGridBounds> queryTileGridBounds(int zoom) const;
+
     // TileSource interface
     std::optional<QByteArray> readTile(int zoom, int x, int y) override;
     std::optional<int> tileSize(int zoom, int x, int y) override;

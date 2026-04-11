@@ -3,6 +3,7 @@
 #include "map/MapViewport.h"
 #include "map/RasterTileProvider.h"
 #include "map/VectorTileProvider.h"
+#include "map/WebMercator.h"
 #include "mvt/FeatureHitTest.h"
 #include "mvt/MvtGeometry.h"
 #include "mbtiles/MBTilesMetadataParser.h"
@@ -100,6 +101,12 @@ void MainWindow::setupMenuBar()
 
     viewMenu->addSeparator();
 
+    m_zoomToBoundsAction = viewMenu->addAction("&Zoom to Tileset Bounds");
+    m_zoomToBoundsAction->setEnabled(false);
+    connect(m_zoomToBoundsAction, &QAction::triggered, this, &MainWindow::zoomToTilesetBounds);
+
+    viewMenu->addSeparator();
+
     m_tileScaleMenu = viewMenu->addMenu("Tile &Scale");
     m_tileScaleMenu->setEnabled(false);
     m_tileScaleGroup = new QActionGroup(this);
@@ -127,7 +134,7 @@ void MainWindow::setupToolBar()
     toolbar->addSeparator();
 
     m_tileFocusAction = toolbar->addAction(
-        QIcon::fromTheme("zoom-select"), "Focus Tile");
+        QIcon::fromTheme("crosshairs"), "Focus Tile");
     m_tileFocusAction->setCheckable(true);
     m_tileFocusAction->setEnabled(false);
     m_tileFocusAction->setVisible(false);
@@ -141,6 +148,14 @@ void MainWindow::setupToolBar()
         m_tileFocusAction->setChecked(false);
         m_zoomSlider->setEnabled(!active && m_tileProvider != nullptr);
     });
+
+    auto* zoomToBoundsToolbarAction = toolbar->addAction(
+        QIcon::fromTheme("zoom-fit-best"), "Zoom to Tileset Bounds");
+    zoomToBoundsToolbarAction->setEnabled(false);
+    connect(zoomToBoundsToolbarAction, &QAction::triggered, this, &MainWindow::zoomToTilesetBounds);
+    // Keep in sync with the menu action's enabled state
+    connect(m_zoomToBoundsAction, &QAction::enabledChanged,
+            zoomToBoundsToolbarAction, &QAction::setEnabled);
 
     // Flexible spacer pushes zoom controls to the right
     auto* spacer = new QWidget(toolbar);
@@ -259,6 +274,22 @@ void MainWindow::loadMBTiles(const QString& path)
     if (auto v = metadata.value("maxzoom"))
         maxZoom = v->toInt();
 
+    // Compute tileset bounds: prefer metadata, fall back to tile grid at minZoom
+    auto boundsOpt = MBTilesMetadataParser::parseBounds(metadata.value("bounds").value_or(""));
+    if (!boundsOpt) {
+        auto grid = reader->queryTileGridBounds(minZoom);
+        if (grid) {
+            double left = static_cast<double>(grid->minX) / (1 << minZoom) * 360.0 - 180.0;
+            double right = static_cast<double>(grid->maxX + 1) / (1 << minZoom) * 360.0 - 180.0;
+            double top = WebMercator::pixelYToLat(
+                static_cast<double>(grid->minY) * WebMercator::TileSize, minZoom);
+            double bottom = WebMercator::pixelYToLat(
+                static_cast<double>(grid->maxY + 1) * WebMercator::TileSize, minZoom);
+            boundsOpt = ParsedBounds{left, bottom, right, top};
+        }
+    }
+    m_tilesetBounds = boundsOpt;
+
     if (format == "pbf") {
         // Vector tile path
         QStringList layerNames;
@@ -342,12 +373,13 @@ void MainWindow::loadMBTiles(const QString& path)
     m_tileFocusAction->setEnabled(m_isVectorFormat);
     m_tileFocusAction->setVisible(m_isVectorFormat);
 
-    // Pass bounds and center to viewport
-    auto boundsOpt = MBTilesMetadataParser::parseBounds(metadata.value("bounds").value_or(""));
+    // Pass metadata bounds and center to viewport for overlay display
+    auto metadataBounds = MBTilesMetadataParser::parseBounds(metadata.value("bounds").value_or(""));
     auto centerOpt = MBTilesMetadataParser::parseCenter(metadata.value("center").value_or(""));
 
-    m_mapViewport->setBounds(boundsOpt);
+    m_mapViewport->setBounds(metadataBounds);
     m_mapViewport->setCenter(centerOpt);
+    m_zoomToBoundsAction->setEnabled(m_tilesetBounds.has_value());
 
     if (centerOpt) {
         m_mapViewport->setView(centerOpt->longitude, centerOpt->latitude, minZoom);
@@ -404,6 +436,27 @@ void MainWindow::loadPMTiles(const QString& path)
     QString format = PMTilesMetadataParser::tileTypeToFormat(header.tile_type);
     int minZoom = header.min_zoom;
     int maxZoom = header.max_zoom;
+
+    // Compute tileset bounds: prefer metadata, fall back to tile grid at minZoom
+    {
+        auto metaBounds = MBTilesMetadataParser::parseBounds(metadata.value("bounds").value_or(""));
+        if (metaBounds) {
+            m_tilesetBounds = metaBounds;
+        } else {
+            auto grid = reader->queryTileGridBounds(minZoom);
+            if (grid) {
+                double left = static_cast<double>(grid->minX) / (1 << minZoom) * 360.0 - 180.0;
+                double right = static_cast<double>(grid->maxX + 1) / (1 << minZoom) * 360.0 - 180.0;
+                double top = WebMercator::pixelYToLat(
+                    static_cast<double>(grid->minY) * WebMercator::TileSize, minZoom);
+                double bottom = WebMercator::pixelYToLat(
+                    static_cast<double>(grid->maxY + 1) * WebMercator::TileSize, minZoom);
+                m_tilesetBounds = ParsedBounds{left, bottom, right, top};
+            } else {
+                m_tilesetBounds.reset();
+            }
+        }
+    }
 
     if (format == "pbf") {
         // Vector tile path
@@ -470,12 +523,13 @@ void MainWindow::loadPMTiles(const QString& path)
     m_tileFocusAction->setEnabled(m_isVectorFormat);
     m_tileFocusAction->setVisible(m_isVectorFormat);
 
-    // Pass bounds and center to viewport
-    auto boundsOpt = MBTilesMetadataParser::parseBounds(metadata.value("bounds").value_or(""));
+    // Pass metadata bounds and center to viewport for overlay display
+    auto metadataBounds = MBTilesMetadataParser::parseBounds(metadata.value("bounds").value_or(""));
     auto centerOpt = MBTilesMetadataParser::parseCenter(metadata.value("center").value_or(""));
 
-    m_mapViewport->setBounds(boundsOpt);
+    m_mapViewport->setBounds(metadataBounds);
     m_mapViewport->setCenter(centerOpt);
+    m_zoomToBoundsAction->setEnabled(m_tilesetBounds.has_value());
 
     if (centerOpt) {
         m_mapViewport->setView(centerOpt->longitude, centerOpt->latitude, minZoom);
@@ -565,6 +619,13 @@ void MainWindow::onInspectRequested(TileKey tile, QPointF tileLocalPos, double t
     }
 
     m_mapViewport->setInspectHighlights(tile, tileSize, highlights);
+}
+
+void MainWindow::zoomToTilesetBounds()
+{
+    if (m_tilesetBounds)
+        m_mapViewport->zoomToBounds(m_tilesetBounds->left, m_tilesetBounds->bottom,
+                                     m_tilesetBounds->right, m_tilesetBounds->top);
 }
 
 void MainWindow::onInspectCleared()
@@ -664,6 +725,8 @@ void MainWindow::clearCurrentFile()
     for (auto* action : m_tileScaleGroup->actions())
         m_tileScaleGroup->removeAction(action);
     m_tileScaleMenu->clear();
+    m_zoomToBoundsAction->setEnabled(false);
+    m_tilesetBounds.reset();
     m_nativeTileSize = 256;
     m_isVectorFormat = false;
     setWindowTitle("TilePeek");

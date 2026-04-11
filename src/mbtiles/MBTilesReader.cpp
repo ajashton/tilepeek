@@ -87,6 +87,29 @@ std::optional<ZoomRange> MBTilesReader::queryZoomRange() const
     return std::nullopt;
 }
 
+std::optional<TileGridBounds> MBTilesReader::queryTileGridBounds(int zoom) const
+{
+    QSqlQuery query(m_db);
+    query.prepare("SELECT MIN(tile_column), MAX(tile_column), "
+                  "MIN(tile_row), MAX(tile_row) "
+                  "FROM tiles WHERE zoom_level = ?");
+    query.addBindValue(zoom);
+    if (!query.exec() || !query.next() || query.value(0).isNull())
+        return std::nullopt;
+
+    int minCol = query.value(0).toInt();
+    int maxCol = query.value(1).toInt();
+    int minTmsRow = query.value(2).toInt();
+    int maxTmsRow = query.value(3).toInt();
+
+    // Convert TMS rows to XYZ y-coordinates
+    // TMS min row -> XYZ max y, TMS max row -> XYZ min y
+    return TileGridBounds{minCol,
+                          TileCoords::tmsToXyz(zoom, maxTmsRow),
+                          maxCol,
+                          TileCoords::tmsToXyz(zoom, minTmsRow)};
+}
+
 std::optional<QByteArray> MBTilesReader::readTileData(int zoom, int column, int row) const
 {
     QSqlQuery query(m_db);

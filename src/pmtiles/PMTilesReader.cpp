@@ -96,6 +96,44 @@ QString PMTilesReader::readJsonMetadata() const
     }
 }
 
+std::optional<PMTilesReader::TileGridBounds> PMTilesReader::queryTileGridBounds(int zoom) const
+{
+    if (!m_mappedData)
+        return std::nullopt;
+
+    auto decompressFn = [this](const std::string& data, uint8_t compression) {
+        return this->decompress(data, compression);
+    };
+
+    try {
+        auto entries = pmtiles::entries_tms(decompressFn, m_mappedData);
+
+        bool found = false;
+        int minX = INT_MAX, minY = INT_MAX;
+        int maxX = INT_MIN, maxY = INT_MIN;
+
+        for (const auto& entry : entries) {
+            if (entry.z != static_cast<uint8_t>(zoom))
+                continue;
+            int x = static_cast<int>(entry.x);
+            // entries_tms returns TMS y; convert to XYZ
+            int y = (1 << zoom) - 1 - static_cast<int>(entry.y);
+            minX = std::min(minX, x);
+            maxX = std::max(maxX, x);
+            minY = std::min(minY, y);
+            maxY = std::max(maxY, y);
+            found = true;
+        }
+
+        if (!found)
+            return std::nullopt;
+
+        return TileGridBounds{minX, minY, maxX, maxY};
+    } catch (const std::exception&) {
+        return std::nullopt;
+    }
+}
+
 std::optional<QByteArray> PMTilesReader::readTile(int zoom, int x, int y)
 {
     if (!m_mappedData)

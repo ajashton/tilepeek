@@ -20,6 +20,10 @@ struct ZoomRange {
     int maxZoom;
 };
 
+struct TileGridBounds {
+    int minX, minY, maxX, maxY; // XYZ coordinates
+};
+
 class MBTilesReader : public TileSource {
 public:
     explicit MBTilesReader(const QString& filePath);
@@ -36,6 +40,7 @@ public:
     MBTilesValidationResult validateSchema() const;
     QList<std::pair<QString, QString>> readRawMetadata() const;
     std::optional<ZoomRange> queryZoomRange() const;
+    std::optional<TileGridBounds> queryTileGridBounds(int zoom) const;
     std::optional<QByteArray> readTileData(int zoom, int column, int row) const;
 
     // TileSource interface (XYZ coordinates, handles TMS conversion internally)

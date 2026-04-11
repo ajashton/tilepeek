@@ -144,6 +144,37 @@ void MapViewport::setZoom(int zoom)
     update();
 }
 
+void MapViewport::zoomToBounds(double left, double bottom, double right, double top)
+{
+    if (!m_provider || width() <= 0 || height() <= 0)
+        return;
+
+    // Find the highest zoom level where the bounds fit in the viewport
+    double ds = displayScale();
+    int bestZoom = m_provider->minZoom();
+
+    for (int z = m_provider->maxZoom(); z >= m_provider->minZoom(); --z) {
+        double pxLeft = WebMercator::lonToPixelX(left, z);
+        double pxRight = WebMercator::lonToPixelX(right, z);
+        double pxTop = WebMercator::latToPixelY(top, z);
+        double pxBottom = WebMercator::latToPixelY(bottom, z);
+
+        double boundsW = (pxRight - pxLeft) * ds;
+        double boundsH = (pxBottom - pxTop) * ds;
+
+        if (boundsW <= width() && boundsH <= height()) {
+            bestZoom = z;
+            break;
+        }
+    }
+
+    // Center on the bounds
+    double centerLon = (left + right) / 2.0;
+    double centerLat = (top + bottom) / 2.0;
+
+    setView(centerLon, centerLat, bestZoom);
+}
+
 void MapViewport::setShowTileBoundaries(bool on) { m_showTileBoundaries = on; update(); }
 void MapViewport::setShowTileIds(bool on) { m_showTileIds = on; update(); }
 void MapViewport::setShowTileSizes(bool on) { m_showTileSizes = on; update(); }
