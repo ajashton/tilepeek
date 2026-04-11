@@ -95,10 +95,5 @@ PMTilesMetadataParser::Result PMTilesMetadataParser::parse(
                                 "Missing JSON metadata for vector tile format"});
     }
 
-    // Name field is recommended
-    if (!meta.hasField("name"))
-        result.messages.append({ValidationMessage::Level::Warning,
-                                "Missing recommended field", "name"});
-
     return result;
 }
