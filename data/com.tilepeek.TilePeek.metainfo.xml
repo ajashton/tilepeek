@@ -24,6 +24,12 @@
   </provides>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.8.0" date="2026-04-11">
+      <description>
+        <p
+        >Click-to-inspect for vector tile features: click any point, line, or polygon to see its properties, layer, and ID in the sidebar. Highlights selected features on the map with support for isolating individual results. Also adds a "Zoom to Tileset Bounds" action and a zoom level tooltip on the toolbar slider.</p>
+      </description>
+    </release>
     <release version="0.7.0" date="2026-04-10">
       <description>
         <p
