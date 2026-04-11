@@ -2,11 +2,13 @@
 
 #include "map/TileProvider.h"
 #include "map/TileSource.h"
+#include "mvt/MvtTypes.h"
 
 #include <QColor>
 #include <QSet>
 #include <QStringList>
 #include <memory>
+#include <optional>
 #include <unordered_map>
 
 class VectorTileProvider : public TileProvider {
@@ -24,7 +26,13 @@ public:
     void setHiddenLayers(const QSet<QString>& hidden);
     void setRenderSize(int size);
 
+    std::optional<mvt::Tile> decodeTileAt(int zoom, int x, int y);
+    const std::unordered_map<std::string, QColor>& layerColors() const { return m_layerColors; }
+    const QSet<QString>& hiddenLayers() const { return m_hiddenLayers; }
+
 private:
+    std::optional<mvt::Tile> readAndDecode(int zoom, int x, int y);
+
     std::unique_ptr<TileSource> m_source;
     int m_minZoom;
     int m_maxZoom;

@@ -64,6 +64,9 @@ void MapViewport::clear()
     m_tileFocusSelecting = false;
     m_focusedTilePixmap = QPixmap();
     m_focusBufferRatio = 0.0;
+    m_inspectHighlights.clear();
+    m_inspectTileSize = 0;
+    m_isolatedHighlight = -1;
     update();
 }
 
@@ -128,6 +131,15 @@ void MapViewport::setZoom(int zoom)
     });
     clampViewport();
     m_zoomSettleTimer.start();
+
+    // Clear inspect highlights on integer zoom change
+    if (!m_inspectHighlights.isEmpty()) {
+        m_inspectHighlights.clear();
+        m_inspectTileSize = 0;
+        m_isolatedHighlight = -1;
+        emit inspectCleared();
+    }
+
     emit zoomChanged(m_zoom);
     update();
 }
@@ -198,6 +210,14 @@ void MapViewport::exitTileFocus()
     m_focusedTilePixmap = QPixmap();
     m_tileFocusSelecting = false;
     setCursor(Qt::ArrowCursor);
+
+    // Clear inspect highlights when exiting focus mode
+    if (!m_inspectHighlights.isEmpty()) {
+        m_inspectHighlights.clear();
+        m_inspectTileSize = 0;
+        m_isolatedHighlight = -1;
+        emit inspectCleared();
+    }
 
     // Clamp scale back to normal range
     if (m_scale >= 2.0 || m_scale < 1.0) {
@@ -281,6 +301,10 @@ void MapViewport::paintEvent(QPaintEvent* /*event*/)
         drawBoundsOverlay(painter, viewCenter);
         drawCenterOverlay(painter, viewCenter);
     }
+
+    // Pass 5: feature inspection highlights
+    if (!m_inspectHighlights.isEmpty())
+        drawInspectHighlights(painter, viewCenter, scaledTileSize);
 }
 
 // --- Overlay rendering ---
@@ -470,6 +494,7 @@ void MapViewport::mousePressEvent(QMouseEvent* event)
     if (event->button() == Qt::LeftButton) {
         m_dragging = true;
         m_lastMousePos = event->pos();
+        m_dragStartPos = event->pos();
         setCursor(Qt::ClosedHandCursor);
         event->accept();
     }
@@ -492,8 +517,38 @@ void MapViewport::mouseMoveEvent(QMouseEvent* event)
 void MapViewport::mouseReleaseEvent(QMouseEvent* event)
 {
     if (event->button() == Qt::LeftButton && m_dragging) {
+        bool wasClick = (event->pos() - m_dragStartPos).manhattanLength() < 4;
         m_dragging = false;
         setCursor(m_tileFocusSelecting ? Qt::CrossCursor : Qt::ArrowCursor);
+
+        if (wasClick && m_isVectorProvider && m_provider) {
+            QPointF viewCenter(width() / 2.0, height() / 2.0);
+            double scaledTileSize = m_displayTileSize * m_scale;
+
+            if (m_tileFocusActive) {
+                // In focus mode: only inspect features on the focused tile,
+                // including buffer area features outside [0, tileSize]
+                QRectF tileRect = tileScreenRect(m_focusedTile.x, m_focusedTile.y,
+                                                  viewCenter, scaledTileSize);
+                double bufferScreenSize = scaledTileSize * m_focusBufferRatio;
+                QRectF expandedRect = tileRect.adjusted(-bufferScreenSize, -bufferScreenSize,
+                                                         bufferScreenSize, bufferScreenSize);
+                if (expandedRect.contains(QPointF(event->pos()))) {
+                    // Convert screen pos to tile-local coords relative to tile origin
+                    // (not the expanded rect). This means buffer features get coords outside [0, tileSize].
+                    QPointF tileLocal = (QPointF(event->pos()) - tileRect.topLeft())
+                                        / tileRect.width() * m_displayTileSize;
+                    emit inspectRequested(m_focusedTile, tileLocal,
+                                          static_cast<double>(m_displayTileSize));
+                }
+            } else {
+                auto key = tileAtScreenPos(event->pos());
+                QRectF tileRect = tileScreenRect(key.x, key.y, viewCenter, scaledTileSize);
+                QPointF tileLocal = (QPointF(event->pos()) - tileRect.topLeft())
+                                    / tileRect.width() * m_displayTileSize;
+                emit inspectRequested(key, tileLocal, static_cast<double>(m_displayTileSize));
+            }
+        }
         event->accept();
     }
 }
@@ -590,6 +645,14 @@ void MapViewport::transitionZoom(int newZoom)
     std::erase_if(m_tileSizeCache, [&](const auto& entry) {
         return entry.first.zoom != m_zoom;
     });
+
+    // Clear inspect highlights on integer zoom change
+    if (!m_inspectHighlights.isEmpty()) {
+        m_inspectHighlights.clear();
+        m_inspectTileSize = 0;
+        m_isolatedHighlight = -1;
+        emit inspectCleared();
+    }
 }
 
 QRect MapViewport::visibleTileRange() const
@@ -611,6 +674,107 @@ QRect MapViewport::visibleTileRange() const
     int maxTileY = std::clamp(static_cast<int>(std::floor(maxPy / WebMercator::TileSize)), 0, maxTile);
 
     return QRect(QPoint(minTileX, minTileY), QPoint(maxTileX, maxTileY));
+}
+
+// --- Feature inspection ---
+
+void MapViewport::setInspectHighlights(TileKey tile, double tileSize,
+                                        const QList<mvt::FeatureHighlight>& highlights)
+{
+    m_inspectTile = tile;
+    m_inspectTileSize = tileSize;
+    m_inspectHighlights = highlights;
+    m_isolatedHighlight = -1;
+    update();
+}
+
+void MapViewport::clearInspectHighlights()
+{
+    if (m_inspectHighlights.isEmpty())
+        return;
+    m_inspectHighlights.clear();
+    m_inspectTileSize = 0;
+    m_isolatedHighlight = -1;
+    update();
+}
+
+void MapViewport::isolateInspectHighlight(int index)
+{
+    m_isolatedHighlight = index;
+    update();
+}
+
+void MapViewport::removeInspectHighlightsForLayers(const QSet<QString>& layers)
+{
+    m_inspectHighlights.erase(
+        std::remove_if(m_inspectHighlights.begin(), m_inspectHighlights.end(),
+                        [&](const mvt::FeatureHighlight& h) {
+                            return layers.contains(h.layerName);
+                        }),
+        m_inspectHighlights.end());
+    m_isolatedHighlight = -1;
+
+    if (m_inspectHighlights.isEmpty()) {
+        m_inspectTileSize = 0;
+        emit inspectCleared();
+    }
+    update();
+}
+
+void MapViewport::drawInspectHighlights(QPainter& painter, QPointF viewCenter,
+                                         double scaledTileSize)
+{
+    QRectF tileRect = tileScreenRect(m_inspectTile.x, m_inspectTile.y,
+                                      viewCenter, scaledTileSize);
+    double screenScale = tileRect.width() / m_inspectTileSize;
+
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.translate(tileRect.topLeft());
+    painter.scale(screenScale, screenScale);
+
+    for (int i = 0; i < m_inspectHighlights.size(); ++i) {
+        if (m_isolatedHighlight >= 0 && i != m_isolatedHighlight)
+            continue;
+
+        const auto& f = m_inspectHighlights[i];
+        QColor color = f.color;
+
+        switch (f.type) {
+        case mvt::GeomType::Polygon: {
+            QColor fillColor = color;
+            fillColor.setAlpha(80);
+            QColor strokeColor = color;
+            strokeColor.setAlpha(220);
+            painter.setBrush(fillColor);
+            painter.setPen(QPen(strokeColor, 2.0 / screenScale));
+            painter.drawPath(f.path);
+            break;
+        }
+        case mvt::GeomType::LineString: {
+            QColor strokeColor = color;
+            strokeColor.setAlpha(220);
+            painter.setBrush(Qt::NoBrush);
+            painter.setPen(QPen(strokeColor, 3.0 / screenScale));
+            painter.drawPath(f.path);
+            break;
+        }
+        case mvt::GeomType::Point: {
+            QColor dotColor = color;
+            dotColor.setAlpha(220);
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(dotColor);
+            double r = 5.0 / screenScale;
+            for (const auto& pt : f.points)
+                painter.drawEllipse(pt, r, r);
+            break;
+        }
+        default:
+            break;
+        }
+    }
+
+    painter.restore();
 }
 
 QPixmap MapViewport::fetchTile(int zoom, int x, int y)

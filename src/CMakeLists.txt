@@ -18,6 +18,7 @@ add_library(tilepeek_lib STATIC
     mbtiles/MBTilesMetadataParser.cpp
     mbtiles/VectorMetadataParser.cpp
     model/TilesetMetadata.cpp
+    mvt/FeatureHitTest.cpp
     mvt/MvtDecoder.cpp
     mvt/MvtGeometry.cpp
     mvt/ProtobufDecoder.cpp

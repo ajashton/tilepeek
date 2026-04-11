@@ -3,6 +3,7 @@
 #include "map/TileCache.h"
 #include "map/TileProvider.h"
 #include "mbtiles/MBTilesMetadataParser.h"
+#include "mvt/FeatureHitTest.h"
 
 #include <QPointF>
 #include <QTimer>
@@ -43,6 +44,12 @@ public:
     void setDisplayTileSize(int size);
     void clearTileCache();
 
+    void setInspectHighlights(TileKey tile, double tileSize,
+                              const QList<mvt::FeatureHighlight>& highlights);
+    void clearInspectHighlights();
+    void isolateInspectHighlight(int index);
+    void removeInspectHighlightsForLayers(const QSet<QString>& layers);
+
 protected:
     void paintEvent(QPaintEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
@@ -55,6 +62,8 @@ protected:
 signals:
     void tileFocusChanged(bool active);
     void zoomChanged(int zoom);
+    void inspectRequested(TileKey tile, QPointF tileLocalPos, double tileSize);
+    void inspectCleared();
 
 private:
     TileKey tileAtScreenPos(const QPoint& pos) const;
@@ -73,6 +82,7 @@ private:
     void drawTileText(QPainter& painter, const QRectF& tileRect, const QStringList& lines);
     void drawBoundsOverlay(QPainter& painter, QPointF viewCenter);
     void drawCenterOverlay(QPainter& painter, QPointF viewCenter);
+    void drawInspectHighlights(QPainter& painter, QPointF viewCenter, double scaledTileSize);
     void onZoomSettled();
 
     TileProvider* m_provider = nullptr;
@@ -85,6 +95,7 @@ private:
 
     bool m_dragging = false;
     QPoint m_lastMousePos;
+    QPoint m_dragStartPos;
 
     bool m_showTileBoundaries = false;
     bool m_showTileIds = false;
@@ -108,4 +119,10 @@ private:
     TileKey m_focusedTile{};
     QPixmap m_focusedTilePixmap;
     double m_focusBufferRatio = 0.0;
+
+    // Feature inspection highlights
+    TileKey m_inspectTile{};
+    QList<mvt::FeatureHighlight> m_inspectHighlights;
+    double m_inspectTileSize = 0;
+    int m_isolatedHighlight = -1; // -1 = show all
 };

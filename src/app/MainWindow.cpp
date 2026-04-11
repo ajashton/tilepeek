@@ -3,6 +3,8 @@
 #include "map/MapViewport.h"
 #include "map/RasterTileProvider.h"
 #include "map/VectorTileProvider.h"
+#include "mvt/FeatureHitTest.h"
+#include "mvt/MvtGeometry.h"
 #include "mbtiles/MBTilesMetadataParser.h"
 #include "mbtiles/MBTilesReader.h"
 #include "mbtiles/VectorMetadataParser.h"
@@ -289,6 +291,12 @@ void MainWindow::loadMBTiles(const QString& path)
 
         connect(m_sidebar, &MetadataSidebar::layerVisibilityChanged,
                 this, &MainWindow::onLayerVisibilityChanged);
+        connect(m_mapViewport, &MapViewport::inspectRequested,
+                this, &MainWindow::onInspectRequested);
+        connect(m_mapViewport, &MapViewport::inspectCleared,
+                this, &MainWindow::onInspectCleared);
+        connect(m_sidebar, &MetadataSidebar::featureIsolated,
+                m_mapViewport, &MapViewport::isolateInspectHighlight);
     } else {
         // Raster tile path
         auto provider = std::make_unique<RasterTileProvider>(
@@ -430,6 +438,12 @@ void MainWindow::loadPMTiles(const QString& path)
 
         connect(m_sidebar, &MetadataSidebar::layerVisibilityChanged,
                 this, &MainWindow::onLayerVisibilityChanged);
+        connect(m_mapViewport, &MapViewport::inspectRequested,
+                this, &MainWindow::onInspectRequested);
+        connect(m_mapViewport, &MapViewport::inspectCleared,
+                this, &MainWindow::onInspectCleared);
+        connect(m_sidebar, &MetadataSidebar::featureIsolated,
+                m_mapViewport, &MapViewport::isolateInspectHighlight);
     } else {
         // Raster tile path
         auto provider = std::make_unique<RasterTileProvider>(
@@ -492,9 +506,65 @@ void MainWindow::onStatsReady(TileStatistics stats)
 void MainWindow::onLayerVisibilityChanged(const QSet<QString>& hiddenLayers)
 {
     if (auto* vtp = dynamic_cast<VectorTileProvider*>(m_tileProvider.get())) {
+        // Determine which layers changed visibility
+        QSet<QString> newlyHidden = hiddenLayers - vtp->hiddenLayers();
+
         vtp->setHiddenLayers(hiddenLayers);
         m_mapViewport->clearTileCache();
+
+        // Remove highlights for newly hidden layers
+        if (!newlyHidden.isEmpty())
+            m_mapViewport->removeInspectHighlightsForLayers(newlyHidden);
     }
+}
+
+void MainWindow::onInspectRequested(TileKey tile, QPointF tileLocalPos, double tileSize)
+{
+    auto* vtp = dynamic_cast<VectorTileProvider*>(m_tileProvider.get());
+    if (!vtp)
+        return;
+
+    auto decodedTile = vtp->decodeTileAt(tile.zoom, tile.x, tile.y);
+    if (!decodedTile)
+        return;
+
+    auto results = mvt::hitTest(*decodedTile, tileLocalPos, tileSize, 4.0,
+                                vtp->hiddenLayers(), vtp->layerColors());
+
+    if (results.isEmpty()) {
+        // Empty click: clear highlights and sidebar
+        m_mapViewport->clearInspectHighlights();
+        m_sidebar->clearInspectResults();
+        return;
+    }
+
+    m_sidebar->setInspectResults(results);
+
+    // Build highlight geometry for each hit feature
+    QList<mvt::FeatureHighlight> highlights;
+    for (const auto& r : results) {
+        const auto& layer = decodedTile->layers[r.layerIndex];
+        const auto& feature = layer.features[r.featureIndex];
+
+        mvt::FeatureHighlight h;
+        h.color = r.layerColor;
+        h.type = r.geomType;
+        h.layerName = r.layerName;
+
+        if (r.geomType == mvt::GeomType::Point) {
+            h.points = mvt::decodePoints(feature, layer.extent, tileSize);
+        } else {
+            h.path = mvt::decodeGeometry(feature, layer.extent, tileSize);
+        }
+        highlights.append(h);
+    }
+
+    m_mapViewport->setInspectHighlights(tile, tileSize, highlights);
+}
+
+void MainWindow::onInspectCleared()
+{
+    m_sidebar->clearInspectResults();
 }
 
 void MainWindow::populateTileScaleMenu(bool isVector)
@@ -566,6 +636,12 @@ void MainWindow::clearCurrentFile()
     stopStatsThread();
     disconnect(m_sidebar, &MetadataSidebar::layerVisibilityChanged,
                this, &MainWindow::onLayerVisibilityChanged);
+    disconnect(m_mapViewport, &MapViewport::inspectRequested,
+               this, &MainWindow::onInspectRequested);
+    disconnect(m_mapViewport, &MapViewport::inspectCleared,
+               this, &MainWindow::onInspectCleared);
+    disconnect(m_sidebar, &MetadataSidebar::featureIsolated,
+               m_mapViewport, &MapViewport::isolateInspectHighlight);
     m_mapViewport->clear();
     m_mapViewport->setBackgroundColor(palette().color(QPalette::Window));
     m_tileProvider.reset();

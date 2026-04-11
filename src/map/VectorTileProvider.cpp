@@ -16,7 +16,7 @@ VectorTileProvider::VectorTileProvider(std::unique_ptr<TileSource> source,
         m_layerColors[layerNames[i].toStdString()] = colors[i];
 }
 
-std::optional<QPixmap> VectorTileProvider::tileAt(int zoom, int x, int y)
+std::optional<mvt::Tile> VectorTileProvider::readAndDecode(int zoom, int x, int y)
 {
     auto blob = m_source->readTile(zoom, x, y);
     if (!blob)
@@ -34,49 +34,31 @@ std::optional<QPixmap> VectorTileProvider::tileAt(int zoom, int x, int y)
     if (!result.tile)
         return std::nullopt;
 
-    return VectorTileRenderer::render(*result.tile, m_layerColors, m_hiddenLayers, m_renderSize);
+    return std::move(*result.tile);
+}
+
+std::optional<QPixmap> VectorTileProvider::tileAt(int zoom, int x, int y)
+{
+    auto tile = readAndDecode(zoom, x, y);
+    if (!tile)
+        return std::nullopt;
+    return VectorTileRenderer::render(*tile, m_layerColors, m_hiddenLayers, m_renderSize);
 }
 
 std::optional<QPixmap> VectorTileProvider::tileAtSize(int zoom, int x, int y, int size)
 {
-    auto blob = m_source->readTile(zoom, x, y);
-    if (!blob)
+    auto tile = readAndDecode(zoom, x, y);
+    if (!tile)
         return std::nullopt;
-
-    QByteArray data = *blob;
-    if (GzipUtils::isGzipCompressed(data)) {
-        auto decompressed = GzipUtils::decompress(data);
-        if (!decompressed)
-            return std::nullopt;
-        data = *decompressed;
-    }
-
-    auto result = mvt::decodeTile(data);
-    if (!result.tile)
-        return std::nullopt;
-
-    return VectorTileRenderer::render(*result.tile, m_layerColors, m_hiddenLayers, size);
+    return VectorTileRenderer::render(*tile, m_layerColors, m_hiddenLayers, size);
 }
 
 std::optional<UnclippedTileResult> VectorTileProvider::tileUnclipped(int zoom, int x, int y, int size)
 {
-    auto blob = m_source->readTile(zoom, x, y);
-    if (!blob)
+    auto tile = readAndDecode(zoom, x, y);
+    if (!tile)
         return std::nullopt;
-
-    QByteArray data = *blob;
-    if (GzipUtils::isGzipCompressed(data)) {
-        auto decompressed = GzipUtils::decompress(data);
-        if (!decompressed)
-            return std::nullopt;
-        data = *decompressed;
-    }
-
-    auto result = mvt::decodeTile(data);
-    if (!result.tile)
-        return std::nullopt;
-
-    return VectorTileRenderer::renderUnclipped(*result.tile, m_layerColors, m_hiddenLayers, size);
+    return VectorTileRenderer::renderUnclipped(*tile, m_layerColors, m_hiddenLayers, size);
 }
 
 std::optional<int> VectorTileProvider::tileSizeAt(int zoom, int x, int y)
@@ -92,4 +74,9 @@ void VectorTileProvider::setHiddenLayers(const QSet<QString>& hidden)
 void VectorTileProvider::setRenderSize(int size)
 {
     m_renderSize = size;
+}
+
+std::optional<mvt::Tile> VectorTileProvider::decodeTileAt(int zoom, int x, int y)
+{
+    return readAndDecode(zoom, x, y);
 }

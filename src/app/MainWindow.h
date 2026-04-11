@@ -1,6 +1,9 @@
 #pragma once
 
+#include "map/TileCache.h"
+
 #include <QMainWindow>
+#include <QPointF>
 #include <QSet>
 #include <memory>
 
@@ -39,6 +42,8 @@ private:
     void clearCurrentFile();
     void onStatsReady(TileStatistics stats);
     void onLayerVisibilityChanged(const QSet<QString>& hiddenLayers);
+    void onInspectRequested(TileKey tile, QPointF tileLocalPos, double tileSize);
+    void onInspectCleared();
     void onTileScaleChanged(QAction* action);
     void populateTileScaleMenu(bool isVector);
     void stopStatsThread();

@@ -14,6 +14,7 @@
 #include <QLocale>
 #include <QEvent>
 #include <QHelpEvent>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPlainTextEdit>
 #include <QPushButton>
@@ -245,6 +246,8 @@ void MetadataSidebar::clear()
     }
     m_layerCheckboxes.clear();
     m_rawJson = QJsonObject();
+    m_inspectTabIndex = -1;
+    m_selectedFeatureIndex = -1;
     m_scrollArea->setWidget(nullptr);
     m_scrollArea->show();
     m_header->show();
@@ -619,4 +622,224 @@ void MetadataSidebar::setTileStatistics(const TileStatistics& stats)
         maxLabel->setStyleSheet("padding: 2px 0;");
         m_statsLayout->addWidget(maxLabel);
     }
+}
+
+void MetadataSidebar::setInspectResults(const QList<mvt::HitTestResult>& results)
+{
+    if (!m_tabWidget || results.isEmpty())
+        return;
+
+    clearInspectResults();
+
+    auto* inspectWidget = buildInspectWidget(results);
+    auto* inspectScroll = new QScrollArea;
+    inspectScroll->setWidgetResizable(true);
+    inspectScroll->setFrameShape(QFrame::NoFrame);
+    inspectScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    inspectScroll->setWidget(inspectWidget);
+
+    m_inspectTabIndex = m_tabWidget->addTab(inspectScroll, "Inspect");
+    m_tabWidget->setCurrentIndex(m_inspectTabIndex);
+}
+
+void MetadataSidebar::clearInspectResults()
+{
+    if (!m_tabWidget || m_inspectTabIndex < 0)
+        return;
+
+    m_tabWidget->removeTab(m_inspectTabIndex);
+    m_inspectTabIndex = -1;
+    m_selectedFeatureIndex = -1;
+}
+
+QWidget* MetadataSidebar::buildInspectWidget(const QList<mvt::HitTestResult>& results)
+{
+    auto* widget = new QWidget;
+    auto* layout = new QVBoxLayout(widget);
+    layout->setContentsMargins(4, 4, 4, 4);
+    layout->setSpacing(0);
+
+    // Keep track of header widgets for selection highlighting
+    QList<QWidget*> headerWidgets;
+
+    for (int i = 0; i < results.size(); ++i) {
+        const auto& result = results[i];
+
+        if (i > 0) {
+            auto* line = new QFrame;
+            line->setFrameShape(QFrame::HLine);
+            line->setFrameShadow(QFrame::Sunken);
+            layout->addWidget(line);
+        }
+
+        // Header row container (clickable)
+        auto* headerContainer = new QWidget;
+        auto* headerLayout = new QHBoxLayout(headerContainer);
+        headerLayout->setContentsMargins(0, 2, 4, 2);
+        headerLayout->setSpacing(2);
+
+        auto* arrow = new QToolButton;
+        arrow->setArrowType(i == 0 ? Qt::DownArrow : Qt::RightArrow);
+        arrow->setAutoRaise(true);
+        arrow->setCheckable(true);
+        arrow->setChecked(i == 0);
+        arrow->setFixedSize(20, 20);
+
+        auto* swatch = new QFrame;
+        swatch->setFixedSize(16, 16);
+        swatch->setStyleSheet(
+            QString("background-color: %1;").arg(result.layerColor.name()));
+
+        auto* nameLabel = new QLabel(result.layerName);
+        nameLabel->setStyleSheet("font-weight: bold;");
+
+        // Geometry type label
+        QString geomText;
+        switch (result.geomType) {
+        case mvt::GeomType::Point: geomText = "Point"; break;
+        case mvt::GeomType::LineString: geomText = "Line"; break;
+        case mvt::GeomType::Polygon: geomText = "Polygon"; break;
+        default: geomText = "Unknown"; break;
+        }
+        auto* geomLabel = new QLabel(geomText);
+        setSubduedTextColor(geomLabel);
+
+        // Feature ID label
+        QString idText = result.featureId
+                             ? QString::number(*result.featureId)
+                             : "(no id)";
+        auto* idLabel = new QLabel(idText);
+        setSubduedTextColor(idLabel);
+
+        headerLayout->addWidget(arrow);
+        headerLayout->addWidget(swatch);
+        headerLayout->addWidget(nameLabel, 1);
+        headerLayout->addWidget(geomLabel);
+        headerLayout->addWidget(idLabel);
+
+        layout->addWidget(headerContainer);
+        headerWidgets.append(headerContainer);
+
+        // Detail widget
+        auto* detail = new QWidget;
+        auto* detailLayout = new QVBoxLayout(detail);
+        detailLayout->setContentsMargins(28, 0, 8, 4);
+        detailLayout->setSpacing(4);
+
+        if (result.properties.isEmpty()) {
+            auto* emptyLabel = new QLabel("No properties");
+            emptyLabel->setStyleSheet("font-style: italic;");
+            setSubduedTextColor(emptyLabel);
+            detailLayout->addWidget(emptyLabel);
+        } else {
+            auto* form = new QFormLayout;
+            form->setContentsMargins(0, 2, 0, 0);
+            form->setHorizontalSpacing(12);
+            form->setVerticalSpacing(2);
+            form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+
+            for (const auto& [key, value] : result.properties) {
+                auto* keyLabel = new QLabel(key);
+                QFont mono("monospace");
+                mono.setStyleHint(QFont::Monospace);
+                keyLabel->setFont(mono);
+
+                auto* valueLabel = new WrappingLabel(value);
+                valueLabel->setWordWrap(true);
+                valueLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+
+                form->addRow(keyLabel, valueLabel);
+            }
+            detailLayout->addLayout(form);
+        }
+
+        detail->setVisible(i == 0);
+        layout->addWidget(detail);
+
+        // Connect arrow toggle
+        connect(arrow, &QToolButton::toggled, this, [arrow, detail](bool expanded) {
+            arrow->setArrowType(expanded ? Qt::DownArrow : Qt::RightArrow);
+            detail->setVisible(expanded);
+        });
+
+        // Click on header to isolate highlight
+        headerContainer->setCursor(Qt::PointingHandCursor);
+        headerContainer->installEventFilter(widget);
+    }
+
+    // Install event filter on the container widget to handle header clicks
+    // We use a lambda-based approach with a custom event filter
+    auto* filterObj = new QObject(widget);
+    connect(filterObj, &QObject::destroyed, this, []() {}); // prevent dangling
+
+    // Store context for the event filter
+    struct FilterContext {
+        MetadataSidebar* sidebar;
+        QList<QWidget*> headers;
+    };
+    auto* ctx = new FilterContext{this, headerWidgets};
+
+    // Use the widget itself as the event filter
+    class HeaderClickFilter : public QObject {
+    public:
+        HeaderClickFilter(FilterContext* ctx, QObject* parent)
+            : QObject(parent), m_ctx(ctx) {}
+        ~HeaderClickFilter() override { delete m_ctx; }
+
+    protected:
+        bool eventFilter(QObject* obj, QEvent* event) override
+        {
+            if (event->type() != QEvent::MouseButtonPress)
+                return false;
+
+            auto* mouseEvent = static_cast<QMouseEvent*>(event);
+            if (mouseEvent->button() != Qt::LeftButton)
+                return false;
+
+            auto* headerWidget = qobject_cast<QWidget*>(obj);
+            if (!headerWidget)
+                return false;
+
+            int clickedIndex = m_ctx->headers.indexOf(headerWidget);
+            if (clickedIndex < 0)
+                return false;
+
+            // Toggle selection
+            int newIndex = (m_ctx->sidebar->m_selectedFeatureIndex == clickedIndex)
+                               ? -1
+                               : clickedIndex;
+            m_ctx->sidebar->m_selectedFeatureIndex = newIndex;
+
+            // Update visual highlighting
+            auto baseColor = m_ctx->headers[0]->palette().color(QPalette::Window);
+            auto highlightColor = m_ctx->headers[0]->palette().color(QPalette::Highlight);
+            highlightColor.setAlpha(40);
+
+            for (int i = 0; i < m_ctx->headers.size(); ++i) {
+                auto* w = m_ctx->headers[i];
+                if (i == newIndex) {
+                    w->setAutoFillBackground(true);
+                    auto pal = w->palette();
+                    pal.setColor(QPalette::Window, highlightColor);
+                    w->setPalette(pal);
+                } else {
+                    w->setAutoFillBackground(false);
+                    w->setPalette(w->parentWidget()->palette());
+                }
+            }
+
+            emit m_ctx->sidebar->featureIsolated(newIndex);
+            return false; // don't consume -- let arrow clicks still work
+        }
+
+    private:
+        FilterContext* m_ctx;
+    };
+
+    auto* filter = new HeaderClickFilter(ctx, widget);
+    for (auto* header : headerWidgets)
+        header->installEventFilter(filter);
+
+    layout->addStretch();
+    return widget;
 }

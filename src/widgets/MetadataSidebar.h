@@ -1,6 +1,7 @@
 #pragma once
 
 #include "model/TilesetMetadata.h"
+#include "mvt/FeatureHitTest.h"
 
 #include <QColor>
 #include <QJsonObject>
@@ -28,10 +29,13 @@ public:
                            const QList<QColor>& layerColors);
     void setStatsPlaceholder();
     void setTileStatistics(const TileStatistics& stats);
+    void setInspectResults(const QList<mvt::HitTestResult>& results);
+    void clearInspectResults();
     void clear();
 
 signals:
     void layerVisibilityChanged(const QSet<QString>& hiddenLayers);
+    void featureIsolated(int index);
 
 private slots:
     void onLayerCheckboxToggled();
@@ -42,6 +46,7 @@ private:
     QWidget* buildMetadataWidget(const TilesetMetadata& metadata, bool skipJson);
     QWidget* buildLayersWidget(const QList<VectorLayerInfo>& layers, const QList<QColor>& layerColors);
     QWidget* buildTilestatsWidget(const QJsonObject& tilestats);
+    QWidget* buildInspectWidget(const QList<mvt::HitTestResult>& results);
     void showJsonWindow();
 
     QVBoxLayout* m_outerLayout = nullptr;
@@ -57,4 +62,6 @@ private:
     QTabWidget* m_tabWidget = nullptr;
     QMap<QString, QCheckBox*> m_layerCheckboxes;
     QJsonObject m_rawJson;
+    int m_inspectTabIndex = -1;
+    int m_selectedFeatureIndex = -1;
 };
