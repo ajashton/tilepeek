@@ -14,8 +14,11 @@ TilePeek is a desktop application for previewing & inspecting map tilesets from 
 - View raster tiles in PNG, JPEG, WebP, and more image formats (provided by Qt)
 - View vector tile data in [Mapbox Vector Tile (MVT)](https://github.com/mapbox/vector-tile-spec) v2 format
 - View tileset metadata & tile statistics (sizes, counts)
-- Optionally visualize tile boundaries, tile IDs, tileset bounds & center
-- Focus mode for vector tiles to inspect individual tiles, including out-of-bounds buffer data
+- Optionally visualize tile boundaries, tile IDs, tile sizes, tileset bounds & center
+- Inspect vector tile data in detail
+    - View layer names, descriptions, fields
+    - Click on individual map features to display properties
+    - Focus individual tiles to reveal out-of-bounds buffer data and zoom in on details
 
 ## Build instructions
 
