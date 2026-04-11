@@ -90,4 +90,39 @@ std::vector<QPointF> decodePoints(const Feature& feature, double extent, double 
     return points;
 }
 
+QRectF geometryBounds(const Feature& feature)
+{
+    if (feature.geometry.empty())
+        return {};
+
+    int32_t cursorX = 0, cursorY = 0;
+    int32_t minX = INT32_MAX, minY = INT32_MAX;
+    int32_t maxX = INT32_MIN, maxY = INT32_MIN;
+    size_t pos = 0;
+    const auto& cmds = feature.geometry;
+
+    while (pos < cmds.size()) {
+        uint32_t cmd = cmds[pos++];
+        uint32_t id = cmd & 0x7;
+        uint32_t count = cmd >> 3;
+
+        if (id == 1 || id == 2) { // MoveTo or LineTo
+            for (uint32_t i = 0; i < count && pos + 1 < cmds.size(); ++i) {
+                cursorX += zigzagDecode(cmds[pos++]);
+                cursorY += zigzagDecode(cmds[pos++]);
+                minX = std::min(minX, cursorX);
+                minY = std::min(minY, cursorY);
+                maxX = std::max(maxX, cursorX);
+                maxY = std::max(maxY, cursorY);
+            }
+        }
+        // ClosePath (id==7) has no parameters
+    }
+
+    if (minX > maxX)
+        return {};
+
+    return QRectF(minX, minY, maxX - minX, maxY - minY);
+}
+
 } // namespace mvt

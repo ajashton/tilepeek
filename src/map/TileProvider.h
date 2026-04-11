@@ -1,5 +1,7 @@
 #pragma once
 
+#include "map/UnclippedTileResult.h"
+
 #include <QPixmap>
 #include <optional>
 
@@ -18,6 +20,13 @@ public:
     virtual std::optional<QPixmap> tileAtSize(int zoom, int x, int y, int /*size*/)
     {
         return tileAt(zoom, x, y);
+    }
+
+    // Render a tile without clipping, showing buffer area data.
+    // Only meaningful for vector tiles; default returns nullopt.
+    virtual std::optional<UnclippedTileResult> tileUnclipped(int, int, int, int)
+    {
+        return std::nullopt;
     }
 
     virtual int minZoom() const = 0;

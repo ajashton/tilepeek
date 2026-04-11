@@ -55,6 +55,7 @@ private:
     QActionGroup* m_tileScaleGroup = nullptr;
     QAction* m_zoomInAction = nullptr;
     QAction* m_zoomOutAction = nullptr;
+    QAction* m_tileFocusAction = nullptr;
     int m_nativeTileSize = 256;
     bool m_isVectorFormat = false;
 };

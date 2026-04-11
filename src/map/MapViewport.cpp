@@ -2,6 +2,9 @@
 #include "map/WebMercator.h"
 #include "util/FormatUtils.h"
 
+#include <QContextMenuEvent>
+#include <QKeyEvent>
+#include <QMenu>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QWheelEvent>
@@ -55,25 +58,46 @@ void MapViewport::clear()
     m_centerPixel = QPointF();
     m_bounds.reset();
     m_center.reset();
+    m_isVectorProvider = false;
+    m_tileFocusActive = false;
+    m_tileFocusSelecting = false;
+    m_focusedTilePixmap = QPixmap();
+    m_focusBufferRatio = 0.0;
     update();
 }
 
 void MapViewport::zoomIn()
 {
-    if (!m_provider || m_zoom >= m_provider->maxZoom())
+    if (!m_provider)
         return;
-    transitionZoom(m_zoom + 1);
-    m_scale = 1.0;
+    if (m_tileFocusActive) {
+        m_scale = std::min(m_scale * 2.0, 8.0);
+    } else {
+        if (m_zoom >= m_provider->maxZoom())
+            return;
+        transitionZoom(m_zoom + 1);
+        m_scale = 1.0;
+    }
+    m_crispCache.clear();
+    m_crispScale = 0;
     m_zoomSettleTimer.start();
     update();
 }
 
 void MapViewport::zoomOut()
 {
-    if (!m_provider || m_zoom <= m_provider->minZoom())
+    if (!m_provider)
         return;
-    transitionZoom(m_zoom - 1);
-    m_scale = 1.0;
+    if (m_tileFocusActive) {
+        m_scale = std::max(m_scale / 2.0, 0.5);
+    } else {
+        if (m_zoom <= m_provider->minZoom())
+            return;
+        transitionZoom(m_zoom - 1);
+        m_scale = 1.0;
+    }
+    m_crispCache.clear();
+    m_crispScale = 0;
     m_zoomSettleTimer.start();
     update();
 }
@@ -98,6 +122,65 @@ void MapViewport::clearTileCache()
     update();
 }
 
+void MapViewport::setTileFocusSelecting(bool on)
+{
+    m_tileFocusSelecting = on;
+    setCursor(on ? Qt::CrossCursor : Qt::ArrowCursor);
+}
+
+TileKey MapViewport::tileAtScreenPos(const QPoint& pos) const
+{
+    QPointF viewCenter(width() / 2.0, height() / 2.0);
+    QPointF worldPos = m_centerPixel + (QPointF(pos) - viewCenter) / (m_scale * displayScale());
+    int tx = std::clamp(static_cast<int>(std::floor(worldPos.x() / WebMercator::TileSize)),
+                        0, (1 << m_zoom) - 1);
+    int ty = std::clamp(static_cast<int>(std::floor(worldPos.y() / WebMercator::TileSize)),
+                        0, (1 << m_zoom) - 1);
+    return {m_zoom, tx, ty};
+}
+
+void MapViewport::focusTileAt(const QPoint& screenPos)
+{
+    if (!m_provider)
+        return;
+
+    auto key = tileAtScreenPos(screenPos);
+    int renderSize = static_cast<int>(m_displayTileSize * m_scale);
+    auto result = m_provider->tileUnclipped(key.zoom, key.x, key.y, renderSize);
+    if (!result)
+        return;
+
+    m_tileFocusActive = true;
+    m_focusedTile = key;
+    m_focusedTilePixmap = result->pixmap;
+    m_focusBufferRatio = result->bufferRatio;
+    m_tileFocusSelecting = false;
+    setCursor(Qt::ArrowCursor);
+    emit tileFocusChanged(true);
+    update();
+}
+
+void MapViewport::exitTileFocus()
+{
+    if (!m_tileFocusActive)
+        return;
+    m_tileFocusActive = false;
+    m_focusedTilePixmap = QPixmap();
+    m_tileFocusSelecting = false;
+    setCursor(Qt::ArrowCursor);
+
+    // Clamp scale back to normal range
+    if (m_scale >= 2.0 || m_scale < 1.0) {
+        m_scale = std::clamp(m_scale, 1.0, 1.99);
+        m_crispCache.clear();
+        m_crispScale = 0;
+        m_zoomSettleTimer.start();
+    }
+
+    emit tileFocusChanged(false);
+    update();
+}
+
 // --- Paint ---
 
 void MapViewport::paintEvent(QPaintEvent* /*event*/)
@@ -114,6 +197,9 @@ void MapViewport::paintEvent(QPaintEvent* /*event*/)
     QRect tiles = visibleTileRange();
 
     // Pass 1: tile imagery
+    if (m_tileFocusActive)
+        painter.setOpacity(0.3);
+
     bool hasCrisp = (m_crispScale == m_scale && m_crispScale != 0);
     for (int ty = tiles.top(); ty <= tiles.bottom(); ++ty) {
         for (int tx = tiles.left(); tx <= tiles.right(); ++tx) {
@@ -138,12 +224,33 @@ void MapViewport::paintEvent(QPaintEvent* /*event*/)
     }
 
     // Pass 2: tile overlays (on top of all tiles)
-    if (m_showTileBoundaries || m_showTileIds || m_showTileSizes)
+    if (!m_tileFocusActive && (m_showTileBoundaries || m_showTileIds || m_showTileSizes))
         drawTileOverlays(painter, tiles, viewCenter, scaledTileSize);
 
-    // Pass 3: geo overlays
-    drawBoundsOverlay(painter, viewCenter);
-    drawCenterOverlay(painter, viewCenter);
+    if (m_tileFocusActive)
+        painter.setOpacity(1.0);
+
+    // Pass 3: focused tile (drawn at full opacity on top of subdued tiles)
+    if (m_tileFocusActive && !m_focusedTilePixmap.isNull()) {
+        QRectF tileRect = tileScreenRect(m_focusedTile.x, m_focusedTile.y,
+                                          viewCenter, scaledTileSize);
+        // Expand rect to include buffer area
+        double bufferScreenSize = scaledTileSize * m_focusBufferRatio;
+        QRectF expandedRect = tileRect.adjusted(-bufferScreenSize, -bufferScreenSize,
+                                                 bufferScreenSize, bufferScreenSize);
+        painter.drawPixmap(expandedRect, m_focusedTilePixmap, m_focusedTilePixmap.rect());
+
+        // Draw tile extent boundary
+        painter.setPen(QPen(QColor(255, 255, 255, 128), 1.0, Qt::DashLine));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawRect(tileRect);
+    }
+
+    // Pass 4: geo overlays
+    if (!m_tileFocusActive) {
+        drawBoundsOverlay(painter, viewCenter);
+        drawCenterOverlay(painter, viewCenter);
+    }
 }
 
 // --- Overlay rendering ---
@@ -287,7 +394,10 @@ void MapViewport::wheelEvent(QWheelEvent* event)
     double scaleStep = 1.0 + (angleDelta / 120.0) * 0.1;
     double newScale = m_scale * scaleStep;
 
-    if (newScale >= 2.0 && m_zoom < m_provider->maxZoom()) {
+    if (m_tileFocusActive) {
+        // In focus mode: lock zoom level, allow wide scale range
+        m_scale = std::clamp(newScale, 0.5, 8.0);
+    } else if (newScale >= 2.0 && m_zoom < m_provider->maxZoom()) {
         worldUnderCursor *= 2.0;
         transitionZoom(m_zoom + 1);
     } else if (newScale < 1.0 && m_zoom > m_provider->minZoom()) {
@@ -320,6 +430,11 @@ void MapViewport::wheelEvent(QWheelEvent* event)
 
 void MapViewport::mousePressEvent(QMouseEvent* event)
 {
+    if (event->button() == Qt::LeftButton && m_tileFocusSelecting) {
+        focusTileAt(event->pos());
+        event->accept();
+        return;
+    }
     if (event->button() == Qt::LeftButton) {
         m_dragging = true;
         m_lastMousePos = event->pos();
@@ -346,9 +461,38 @@ void MapViewport::mouseReleaseEvent(QMouseEvent* event)
 {
     if (event->button() == Qt::LeftButton && m_dragging) {
         m_dragging = false;
-        setCursor(Qt::ArrowCursor);
+        setCursor(m_tileFocusSelecting ? Qt::CrossCursor : Qt::ArrowCursor);
         event->accept();
     }
+}
+
+void MapViewport::contextMenuEvent(QContextMenuEvent* event)
+{
+    if (!m_provider || !m_isVectorProvider)
+        return;
+
+    QMenu menu(this);
+    if (m_tileFocusActive) {
+        menu.addAction("Exit tile focus", this, &MapViewport::exitTileFocus);
+    } else {
+        auto key = tileAtScreenPos(event->pos());
+        auto* action = menu.addAction(
+            QString("Focus tile %1/%2/%3").arg(key.zoom).arg(key.x).arg(key.y));
+        connect(action, &QAction::triggered, this, [this, pos = event->pos()] {
+            focusTileAt(pos);
+        });
+    }
+    menu.exec(event->globalPos());
+}
+
+void MapViewport::keyPressEvent(QKeyEvent* event)
+{
+    if (event->key() == Qt::Key_Escape && m_tileFocusActive) {
+        exitTileFocus();
+        event->accept();
+        return;
+    }
+    QWidget::keyPressEvent(event);
 }
 
 // --- Internal state ---
@@ -375,6 +519,17 @@ void MapViewport::onZoomSettled()
     }
 
     m_crispScale = m_scale;
+
+    // Re-render focused tile at current scale
+    if (m_tileFocusActive) {
+        auto result = m_provider->tileUnclipped(
+            m_focusedTile.zoom, m_focusedTile.x, m_focusedTile.y, crispSize);
+        if (result) {
+            m_focusedTilePixmap = result->pixmap;
+            m_focusBufferRatio = result->bufferRatio;
+        }
+    }
+
     update();
 }
 

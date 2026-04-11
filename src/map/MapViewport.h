@@ -22,6 +22,13 @@ public:
     void zoomIn();
     void zoomOut();
 
+    void setTileFocusSelecting(bool on);
+    void focusTileAt(const QPoint& screenPos);
+    void exitTileFocus();
+    bool isTileFocusActive() const { return m_tileFocusActive; }
+    bool isVectorProvider() const { return m_isVectorProvider; }
+    void setVectorProvider(bool isVector) { m_isVectorProvider = isVector; }
+
     void setShowTileBoundaries(bool on);
     void setShowTileIds(bool on);
     void setShowTileSizes(bool on);
@@ -40,8 +47,14 @@ protected:
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
+    void contextMenuEvent(QContextMenuEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
+
+signals:
+    void tileFocusChanged(bool active);
 
 private:
+    TileKey tileAtScreenPos(const QPoint& pos) const;
     void clampViewport();
     void transitionZoom(int newZoom);
     double displayScale() const { return m_displayTileSize / 256.0; }
@@ -80,8 +93,16 @@ private:
     std::optional<ParsedCenter> m_center;
     QColor m_bgColor;
     int m_displayTileSize = 256;
+    bool m_isVectorProvider = false;
 
     QTimer m_zoomSettleTimer;
     TileCache m_crispCache;
     double m_crispScale = 0;
+
+    // Tile focus mode
+    bool m_tileFocusActive = false;
+    bool m_tileFocusSelecting = false;
+    TileKey m_focusedTile{};
+    QPixmap m_focusedTilePixmap;
+    double m_focusBufferRatio = 0.0;
 };

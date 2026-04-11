@@ -121,6 +121,48 @@ private slots:
         auto path = decodeGeometry(f, 4096.0, 256.0);
         QVERIFY(path.isEmpty());
     }
+
+    void geometryBoundsWithinExtent()
+    {
+        Feature f;
+        f.type = GeomType::LineString;
+        // Line from (100, 200) to (3000, 3500)
+        f.geometry = {makeCommand(1, 1), zigzagEncode(100), zigzagEncode(200),
+                      makeCommand(2, 1), zigzagEncode(2900), zigzagEncode(3300)};
+
+        auto bounds = geometryBounds(f);
+        QVERIFY(!bounds.isNull());
+        QCOMPARE(bounds.left(), 100.0);
+        QCOMPARE(bounds.top(), 200.0);
+        QCOMPARE(bounds.right(), 3000.0);
+        QCOMPARE(bounds.bottom(), 3500.0);
+    }
+
+    void geometryBoundsWithBuffer()
+    {
+        Feature f;
+        f.type = GeomType::LineString;
+        // Line from (-256, -256) to (4352, 4352) — extends beyond [0, 4096]
+        f.geometry = {makeCommand(1, 1), zigzagEncode(-256), zigzagEncode(-256),
+                      makeCommand(2, 1), zigzagEncode(4608), zigzagEncode(4608)};
+
+        auto bounds = geometryBounds(f);
+        QVERIFY(!bounds.isNull());
+        QCOMPARE(bounds.left(), -256.0);
+        QCOMPARE(bounds.top(), -256.0);
+        QCOMPARE(bounds.right(), 4352.0);
+        QCOMPARE(bounds.bottom(), 4352.0);
+    }
+
+    void geometryBoundsEmpty()
+    {
+        Feature f;
+        f.type = GeomType::Point;
+        f.geometry = {};
+
+        auto bounds = geometryBounds(f);
+        QVERIFY(bounds.isNull());
+    }
 };
 
 QTEST_GUILESS_MAIN(TestMvtGeometry)

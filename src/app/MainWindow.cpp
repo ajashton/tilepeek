@@ -132,6 +132,26 @@ void MainWindow::setupToolBar()
         QIcon::fromTheme("zoom-in"), "Zoom In");
     m_zoomInAction->setEnabled(false);
     connect(m_zoomInAction, &QAction::triggered, m_mapViewport, &MapViewport::zoomIn);
+
+    toolbar->addSeparator();
+
+    m_tileFocusAction = toolbar->addAction(
+        QIcon::fromTheme("zoom-select"), "Focus Tile");
+    m_tileFocusAction->setCheckable(true);
+    m_tileFocusAction->setEnabled(false);
+    m_tileFocusAction->setVisible(false);
+    connect(m_tileFocusAction, &QAction::toggled, this, [this](bool checked) {
+        if (checked && m_mapViewport->isTileFocusActive()) {
+            m_mapViewport->exitTileFocus();
+        }
+        m_mapViewport->setTileFocusSelecting(checked);
+    });
+    connect(m_mapViewport, &MapViewport::tileFocusChanged, this, [this](bool active) {
+        m_tileFocusAction->setChecked(false);
+        if (!active) {
+            // Focus exited — button already unchecked
+        }
+    });
 }
 
 void MainWindow::setupCentralWidget()
@@ -248,6 +268,7 @@ void MainWindow::loadMBTiles(const QString& path)
         vectorProvider->setRenderSize(512);
         m_tileProvider = std::move(vectorProvider);
         m_mapViewport->setBackgroundColor(QColor("#202122"));
+        m_mapViewport->setVectorProvider(true);
         m_mapViewport->setDisplayTileSize(512);
         populateTileScaleMenu(true);
 
@@ -288,6 +309,8 @@ void MainWindow::loadMBTiles(const QString& path)
     m_stack->setCurrentIndex(1);
     m_zoomInAction->setEnabled(true);
     m_zoomOutAction->setEnabled(true);
+    m_tileFocusAction->setEnabled(m_isVectorFormat);
+    m_tileFocusAction->setVisible(m_isVectorFormat);
 
     // Pass bounds and center to viewport
     auto boundsOpt = MBTilesMetadataParser::parseBounds(metadata.value("bounds").value_or(""));
@@ -384,6 +407,7 @@ void MainWindow::loadPMTiles(const QString& path)
         vectorProvider->setRenderSize(512);
         m_tileProvider = std::move(vectorProvider);
         m_mapViewport->setBackgroundColor(QColor("#202122"));
+        m_mapViewport->setVectorProvider(true);
         m_mapViewport->setDisplayTileSize(512);
         populateTileScaleMenu(true);
 
@@ -405,6 +429,8 @@ void MainWindow::loadPMTiles(const QString& path)
     m_stack->setCurrentIndex(1);
     m_zoomInAction->setEnabled(true);
     m_zoomOutAction->setEnabled(true);
+    m_tileFocusAction->setEnabled(m_isVectorFormat);
+    m_tileFocusAction->setVisible(m_isVectorFormat);
 
     // Pass bounds and center to viewport
     auto boundsOpt = MBTilesMetadataParser::parseBounds(metadata.value("bounds").value_or(""));
@@ -528,6 +554,9 @@ void MainWindow::clearCurrentFile()
     m_stack->setCurrentWidget(m_emptyState);
     m_zoomInAction->setEnabled(false);
     m_zoomOutAction->setEnabled(false);
+    m_tileFocusAction->setEnabled(false);
+    m_tileFocusAction->setVisible(false);
+    m_tileFocusAction->setChecked(false);
     m_toastManager->clearAll();
     m_tileScaleMenu->setEnabled(false);
     for (auto* action : m_tileScaleGroup->actions())
