@@ -6,6 +6,8 @@ TilePeek is a desktop application for previewing & inspecting map tilesets from 
 > There is no packaged release yet. Binaries for Linux will come soon, and hopefully MacOS & Windows shortly after.
 > Until then feel free to compile it yourself to try it out & provide feedback.
 
+![](docs/screenshot-main-window.png)
+
 ## Feature overview
 
 - Open local tilesets from MBTiles v1 & PMTiles v3 container formats
