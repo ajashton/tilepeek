@@ -162,8 +162,13 @@ void MainWindow::setupToolBar()
     m_zoomSlider->setFixedWidth(180);
     toolbar->addWidget(m_zoomSlider);
 
+    auto updateZoomTooltip = [this](int value) {
+        m_zoomSlider->setToolTip(QString("Zoom level %1").arg(value));
+    };
     connect(m_zoomSlider, &QSlider::valueChanged, m_mapViewport, &MapViewport::setZoom);
+    connect(m_zoomSlider, &QSlider::valueChanged, this, updateZoomTooltip);
     connect(m_mapViewport, &MapViewport::zoomChanged, m_zoomSlider, &QSlider::setValue);
+    connect(m_mapViewport, &MapViewport::zoomChanged, this, updateZoomTooltip);
 
     m_zoomInAction = toolbar->addAction(
         QIcon::fromTheme("zoom-in"), "Zoom In");
