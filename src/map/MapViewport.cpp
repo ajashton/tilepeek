@@ -41,6 +41,7 @@ void MapViewport::setView(double longitude, double latitude, int zoom)
     m_centerPixel = QPointF(WebMercator::lonToPixelX(longitude, m_zoom),
                             WebMercator::latToPixelY(latitude, m_zoom));
     clampViewport();
+    emit zoomChanged(m_zoom);
     update();
 }
 
@@ -77,6 +78,7 @@ void MapViewport::zoomIn()
             return;
         transitionZoom(m_zoom + 1);
         m_scale = 1.0;
+        emit zoomChanged(m_zoom);
     }
     m_crispCache.clear();
     m_crispScale = 0;
@@ -95,10 +97,38 @@ void MapViewport::zoomOut()
             return;
         transitionZoom(m_zoom - 1);
         m_scale = 1.0;
+        emit zoomChanged(m_zoom);
     }
     m_crispCache.clear();
     m_crispScale = 0;
     m_zoomSettleTimer.start();
+    update();
+}
+
+void MapViewport::setZoom(int zoom)
+{
+    if (!m_provider || m_tileFocusActive)
+        return;
+    zoom = std::clamp(zoom, m_provider->minZoom(), m_provider->maxZoom());
+    if (zoom == m_zoom)
+        return;
+
+    // Scale center pixel coordinates for multi-level zoom jump
+    int delta = zoom - m_zoom;
+    double factor = std::pow(2.0, delta);
+    m_centerPixel *= factor;
+
+    m_zoom = zoom;
+    m_scale = 1.0;
+    m_cache.evictOtherZooms(m_zoom);
+    m_crispCache.clear();
+    m_crispScale = 0;
+    std::erase_if(m_tileSizeCache, [&](const auto& entry) {
+        return entry.first.zoom != m_zoom;
+    });
+    clampViewport();
+    m_zoomSettleTimer.start();
+    emit zoomChanged(m_zoom);
     update();
 }
 
@@ -400,9 +430,11 @@ void MapViewport::wheelEvent(QWheelEvent* event)
     } else if (newScale >= 2.0 && m_zoom < m_provider->maxZoom()) {
         worldUnderCursor *= 2.0;
         transitionZoom(m_zoom + 1);
+        emit zoomChanged(m_zoom);
     } else if (newScale < 1.0 && m_zoom > m_provider->minZoom()) {
         worldUnderCursor /= 2.0;
         transitionZoom(m_zoom - 1);
+        emit zoomChanged(m_zoom);
     } else if (newScale >= 2.0) {
         m_scale = 1.99;
     } else if (newScale < 1.0) {

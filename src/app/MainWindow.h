@@ -12,6 +12,7 @@ class TileStatsWorker;
 class ToastManager;
 class QActionGroup;
 class QMenu;
+class QSlider;
 class QStackedWidget;
 class QThread;
 struct TileStatistics;
@@ -56,6 +57,7 @@ private:
     QAction* m_zoomInAction = nullptr;
     QAction* m_zoomOutAction = nullptr;
     QAction* m_tileFocusAction = nullptr;
+    QSlider* m_zoomSlider = nullptr;
     int m_nativeTileSize = 256;
     bool m_isVectorFormat = false;
 };

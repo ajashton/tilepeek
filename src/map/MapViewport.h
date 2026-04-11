@@ -21,6 +21,8 @@ public:
 
     void zoomIn();
     void zoomOut();
+    void setZoom(int zoom);
+    int currentZoom() const { return m_zoom; }
 
     void setTileFocusSelecting(bool on);
     void focusTileAt(const QPoint& screenPos);
@@ -52,6 +54,7 @@ protected:
 
 signals:
     void tileFocusChanged(bool active);
+    void zoomChanged(int zoom);
 
 private:
     TileKey tileAtScreenPos(const QPoint& pos) const;

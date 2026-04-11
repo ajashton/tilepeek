@@ -24,6 +24,7 @@
 #include <QMenuBar>
 #include <QSettings>
 #include <QMimeData>
+#include <QSlider>
 #include <QSplitter>
 #include <QToolBar>
 #include <QStackedWidget>
@@ -123,18 +124,6 @@ void MainWindow::setupToolBar()
 
     toolbar->addSeparator();
 
-    m_zoomOutAction = toolbar->addAction(
-        QIcon::fromTheme("zoom-out"), "Zoom Out");
-    m_zoomOutAction->setEnabled(false);
-    connect(m_zoomOutAction, &QAction::triggered, m_mapViewport, &MapViewport::zoomOut);
-
-    m_zoomInAction = toolbar->addAction(
-        QIcon::fromTheme("zoom-in"), "Zoom In");
-    m_zoomInAction->setEnabled(false);
-    connect(m_zoomInAction, &QAction::triggered, m_mapViewport, &MapViewport::zoomIn);
-
-    toolbar->addSeparator();
-
     m_tileFocusAction = toolbar->addAction(
         QIcon::fromTheme("zoom-select"), "Focus Tile");
     m_tileFocusAction->setCheckable(true);
@@ -148,10 +137,36 @@ void MainWindow::setupToolBar()
     });
     connect(m_mapViewport, &MapViewport::tileFocusChanged, this, [this](bool active) {
         m_tileFocusAction->setChecked(false);
-        if (!active) {
-            // Focus exited — button already unchecked
-        }
+        m_zoomSlider->setEnabled(!active && m_tileProvider != nullptr);
     });
+
+    // Flexible spacer pushes zoom controls to the right
+    auto* spacer = new QWidget(toolbar);
+    spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    toolbar->addWidget(spacer);
+
+    m_zoomOutAction = toolbar->addAction(
+        QIcon::fromTheme("zoom-out"), "Zoom Out");
+    m_zoomOutAction->setEnabled(false);
+    connect(m_zoomOutAction, &QAction::triggered, m_mapViewport, &MapViewport::zoomOut);
+
+    m_zoomSlider = new QSlider(Qt::Horizontal, toolbar);
+    m_zoomSlider->setTickPosition(QSlider::TicksBelow);
+    m_zoomSlider->setTickInterval(1);
+    m_zoomSlider->setSingleStep(1);
+    m_zoomSlider->setPageStep(1);
+    m_zoomSlider->setRange(0, 0);
+    m_zoomSlider->setEnabled(false);
+    m_zoomSlider->setFixedWidth(180);
+    toolbar->addWidget(m_zoomSlider);
+
+    connect(m_zoomSlider, &QSlider::valueChanged, m_mapViewport, &MapViewport::setZoom);
+    connect(m_mapViewport, &MapViewport::zoomChanged, m_zoomSlider, &QSlider::setValue);
+
+    m_zoomInAction = toolbar->addAction(
+        QIcon::fromTheme("zoom-in"), "Zoom In");
+    m_zoomInAction->setEnabled(false);
+    connect(m_zoomInAction, &QAction::triggered, m_mapViewport, &MapViewport::zoomIn);
 }
 
 void MainWindow::setupCentralWidget()
@@ -309,6 +324,8 @@ void MainWindow::loadMBTiles(const QString& path)
     m_stack->setCurrentIndex(1);
     m_zoomInAction->setEnabled(true);
     m_zoomOutAction->setEnabled(true);
+    m_zoomSlider->setRange(minZoom, maxZoom);
+    m_zoomSlider->setEnabled(true);
     m_tileFocusAction->setEnabled(m_isVectorFormat);
     m_tileFocusAction->setVisible(m_isVectorFormat);
 
@@ -429,6 +446,8 @@ void MainWindow::loadPMTiles(const QString& path)
     m_stack->setCurrentIndex(1);
     m_zoomInAction->setEnabled(true);
     m_zoomOutAction->setEnabled(true);
+    m_zoomSlider->setRange(minZoom, maxZoom);
+    m_zoomSlider->setEnabled(true);
     m_tileFocusAction->setEnabled(m_isVectorFormat);
     m_tileFocusAction->setVisible(m_isVectorFormat);
 
@@ -554,6 +573,8 @@ void MainWindow::clearCurrentFile()
     m_stack->setCurrentWidget(m_emptyState);
     m_zoomInAction->setEnabled(false);
     m_zoomOutAction->setEnabled(false);
+    m_zoomSlider->setRange(0, 0);
+    m_zoomSlider->setEnabled(false);
     m_tileFocusAction->setEnabled(false);
     m_tileFocusAction->setVisible(false);
     m_tileFocusAction->setChecked(false);
