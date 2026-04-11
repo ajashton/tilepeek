@@ -1,0 +1,7 @@
+[*.cpp,*.h,*.hpp]
+indent_style = space
+indent_size = 4
+
+[*.xml]
+indent_style = space
+indent_size = 2
