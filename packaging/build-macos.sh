@@ -104,11 +104,11 @@ mkdir -p "$BUILD_DIR"
 
 # --- Configure + build -------------------------------------------------------
 
-note "Configuring (arm64; deployment target 14.0)"
+note "Configuring (arm64; deployment target 15.0)"
 cmake -S "$PROJECT_DIR" -B "$BUILD_DIR" \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_OSX_ARCHITECTURES="arm64" \
-    -DCMAKE_OSX_DEPLOYMENT_TARGET="14.0" \
+    -DCMAKE_OSX_DEPLOYMENT_TARGET="15.0" \
     -DCMAKE_PREFIX_PATH="$QT_DIR"
 
 note "Building"

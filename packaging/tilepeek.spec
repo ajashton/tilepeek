@@ -9,12 +9,14 @@ Source0:        %{name}-%{version}.tar.gz
 BuildRequires:  cmake >= 3.25
 BuildRequires:  gcc-c++
 BuildRequires:  qt6-qtbase-devel
+BuildRequires:  qt6-qtsvg-devel
 BuildRequires:  zlib-devel
 BuildRequires:  librsvg2-tools
 BuildRequires:  desktop-file-utils
 BuildRequires:  libappstream-glib
 
 Requires:       qt6-qtbase
+Requires:       qt6-qtsvg
 Requires:       zlib
 
 %description

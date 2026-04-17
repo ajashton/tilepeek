@@ -36,7 +36,7 @@ target_include_directories(tilepeek_lib PUBLIC
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_SOURCE_DIR}/vendor
 )
-target_link_libraries(tilepeek_lib PUBLIC Qt6::Widgets Qt6::Sql Qt6::Concurrent ZLIB::ZLIB)
+target_link_libraries(tilepeek_lib PUBLIC Qt6::Widgets Qt6::Sql Qt6::Svg Qt6::Concurrent ZLIB::ZLIB)
 
 find_program(RSVG_CONVERT rsvg-convert)
 
