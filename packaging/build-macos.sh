@@ -174,10 +174,11 @@ create-dmg \
     --volname "TilePeek ${VERSION}" \
     --window-pos 200 120 \
     --window-size 540 380 \
+    --background packaging/assets/dmg-background.tiff \
     --icon-size 96 \
-    --icon "TilePeek.app" 140 180 \
+    --icon "TilePeek.app" 140 160 \
     --hide-extension "TilePeek.app" \
-    --app-drop-link 400 180 \
+    --app-drop-link 400 160 \
     --no-internet-enable \
     "$DMG_OUT" \
     "$DMG_STAGE/"
