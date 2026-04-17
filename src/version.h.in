@@ -1,2 +1,3 @@
 #pragma once
 constexpr const char* TILEPEEK_VERSION = "@PROJECT_VERSION@";
+constexpr const char* TILEPEEK_GIT_SHA = "@TILEPEEK_GIT_SHA@";

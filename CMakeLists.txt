@@ -15,6 +15,22 @@ include(GNUInstallDirs)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets Sql Svg Test Concurrent)
 
+find_package(Git QUIET)
+set(TILEPEEK_GIT_SHA "unknown")
+if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} rev-parse --short=12 HEAD
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE _tilepeek_git_sha
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+        RESULT_VARIABLE _tilepeek_git_result
+    )
+    if(_tilepeek_git_result EQUAL 0 AND _tilepeek_git_sha)
+        set(TILEPEEK_GIT_SHA "${_tilepeek_git_sha}")
+    endif()
+endif()
+
 add_subdirectory(src)
 
 enable_testing()
