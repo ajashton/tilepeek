@@ -309,17 +309,6 @@ void MetadataSidebar::setVectorMetadata(const TilesetMetadata& metadata,
     layersScroll->setWidget(layersWidget);
     m_tabWidget->addTab(layersScroll, "Layers");
 
-    // Tilestats tab (only if present)
-    if (vectorMeta.hasTilestats) {
-        auto* statsWidget = buildTilestatsWidget(vectorMeta.tilestats);
-        auto* statsScroll = new QScrollArea;
-        statsScroll->setWidgetResizable(true);
-        statsScroll->setFrameShape(QFrame::NoFrame);
-        statsScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        statsScroll->setWidget(statsWidget);
-        m_tabWidget->addTab(statsScroll, "Stats");
-    }
-
     m_rawJson = vectorMeta.rawJson;
 }
 
@@ -512,23 +501,6 @@ void MetadataSidebar::onLayerCheckboxToggled()
             hidden.insert(it.key());
     }
     emit layerVisibilityChanged(hidden);
-}
-
-QWidget* MetadataSidebar::buildTilestatsWidget(const QJsonObject& tilestats)
-{
-    auto* widget = new QWidget;
-    auto* layout = new QVBoxLayout(widget);
-    layout->setContentsMargins(8, 4, 8, 8);
-
-    QJsonDocument doc(tilestats);
-    auto* text = new QPlainTextEdit(QString::fromUtf8(doc.toJson(QJsonDocument::Indented)));
-    text->setReadOnly(true);
-    QFont mono("monospace", 9);
-    mono.setStyleHint(QFont::Monospace);
-    text->setFont(mono);
-    layout->addWidget(text);
-
-    return widget;
 }
 
 void MetadataSidebar::showJsonWindow()

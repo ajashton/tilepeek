@@ -53,7 +53,6 @@ private:
     QWidget* buildMetadataWidget(const TilesetMetadata& metadata, bool skipJson,
                                  const QList<ValidationMessage>& messages);
     QWidget* buildLayersWidget(const QList<VectorLayerInfo>& layers, const QList<QColor>& layerColors);
-    QWidget* buildTilestatsWidget(const QJsonObject& tilestats);
     QWidget* buildInspectWidget(const QList<mvt::HitTestResult>& results);
     void showJsonWindow();
 
