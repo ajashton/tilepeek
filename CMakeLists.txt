@@ -1,4 +1,9 @@
 cmake_minimum_required(VERSION 3.25)
+
+if(APPLE AND NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "Minimum macOS version")
+endif()
+
 project(tilepeek VERSION 0.8.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
