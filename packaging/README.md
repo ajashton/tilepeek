@@ -148,7 +148,7 @@ Useful flags during development:
 1. Validates prereqs: host is Apple Silicon, tools on `$PATH`, signing
    identity is in the keychain, notary profile works.
 2. `cmake -S . -B build/macos` with `CMAKE_OSX_ARCHITECTURES=arm64`,
-   `CMAKE_OSX_DEPLOYMENT_TARGET=12.0`, `CMAKE_PREFIX_PATH=$QT_DIR`.
+   `CMAKE_OSX_DEPLOYMENT_TARGET=14.0`, `CMAKE_PREFIX_PATH=$QT_DIR`.
 3. `cmake --build` (Release).
 4. `ctest` unless `--skip-tests`.
 5. Copies the built `TilePeek.app` to `build/macos/stage/`.
