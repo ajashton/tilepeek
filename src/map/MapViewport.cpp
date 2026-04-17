@@ -14,6 +14,13 @@
 
 #include <algorithm>
 
+namespace {
+// At the deepest authored zoom we allow overzoom up to 400% so street-level
+// detail in vector tilesets remains usable even when the tileset stops at a
+// lower zoom level than the underlying data supports.
+constexpr double kMaxZoomOverzoomCap = 4.0;
+}
+
 MapViewport::MapViewport(QWidget* parent)
     : QWidget(parent)
     , m_bgColor(palette().color(QPalette::Window))
@@ -87,9 +94,12 @@ void MapViewport::zoomIn()
         return;
     if (m_tileFocusActive) {
         m_scale = std::min(m_scale * 2.0, 8.0);
-    } else {
-        if (m_zoom >= m_provider->maxZoom())
+    } else if (m_zoom >= m_provider->maxZoom()) {
+        // Already at the deepest authored zoom — double the overzoom scale.
+        if (m_scale >= kMaxZoomOverzoomCap)
             return;
+        m_scale = std::min(m_scale * 2.0, kMaxZoomOverzoomCap);
+    } else {
         transitionZoom(m_zoom + 1);
         m_scale = 1.0;
         emit zoomChanged(m_zoom);
@@ -106,6 +116,9 @@ void MapViewport::zoomOut()
         return;
     if (m_tileFocusActive) {
         m_scale = std::max(m_scale / 2.0, 0.5);
+    } else if (m_zoom == m_provider->maxZoom() && m_scale > 1.0) {
+        // Unwind overzoom one step before transitioning down.
+        m_scale = std::max(m_scale / 2.0, 1.0);
     } else {
         if (m_zoom <= m_provider->minZoom())
             return;
@@ -263,9 +276,10 @@ void MapViewport::exitTileFocus()
         emit inspectCleared();
     }
 
-    // Clamp scale back to normal range
-    if (m_scale >= 2.0 || m_scale < 1.0) {
-        m_scale = std::clamp(m_scale, 1.0, 1.99);
+    // Clamp scale back to the non-focus range (wider at maxZoom for overzoom).
+    const double maxScale = (m_zoom == m_provider->maxZoom()) ? kMaxZoomOverzoomCap : 1.99;
+    if (m_scale > maxScale || m_scale < 1.0) {
+        m_scale = std::clamp(m_scale, 1.0, maxScale);
         m_crispCache.clear();
         m_crispScale = 0;
         m_zoomSettleTimer.start();
@@ -535,6 +549,9 @@ void MapViewport::wheelEvent(QWheelEvent* event)
         worldUnderCursor /= 2.0;
         transitionZoom(m_zoom - 1);
         emit zoomChanged(m_zoom);
+    } else if (m_zoom == m_provider->maxZoom()) {
+        // At the deepest authored zoom: allow overzoom up to 400%.
+        m_scale = std::clamp(newScale, 1.0, kMaxZoomOverzoomCap);
     } else if (newScale >= 2.0) {
         m_scale = 1.99;
     } else if (newScale < 1.0) {
