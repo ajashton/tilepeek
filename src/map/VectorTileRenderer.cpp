@@ -8,9 +8,12 @@
 QPixmap VectorTileRenderer::render(const mvt::Tile& tile,
                                     const std::unordered_map<std::string, QColor>& layerColors,
                                     const QSet<QString>& hiddenLayers,
-                                    int tileSize)
+                                    int tileSize,
+                                    qreal dpr)
 {
-    QPixmap pixmap(tileSize, tileSize);
+    int phys = static_cast<int>(std::lround(tileSize * dpr));
+    QPixmap pixmap(phys, phys);
+    pixmap.setDevicePixelRatio(dpr);
     pixmap.fill(QColor("#000000"));
 
     QPainter painter(&pixmap);
@@ -129,7 +132,8 @@ UnclippedTileResult VectorTileRenderer::renderUnclipped(
     const mvt::Tile& tile,
     const std::unordered_map<std::string, QColor>& layerColors,
     const QSet<QString>& hiddenLayers,
-    int tileSize)
+    int tileSize,
+    qreal dpr)
 {
     // Scan all geometry to find the actual extent of buffer data
     double minCoord = 0.0, maxCoord = 0.0;
@@ -156,7 +160,9 @@ UnclippedTileResult VectorTileRenderer::renderUnclipped(
     int pixmapSize = static_cast<int>(std::ceil(tileSize * totalRatio));
     int bufferPixels = static_cast<int>(std::round(tileSize * bufferRatio));
 
-    QPixmap pixmap(pixmapSize, pixmapSize);
+    int physPixmapSize = static_cast<int>(std::lround(pixmapSize * dpr));
+    QPixmap pixmap(physPixmapSize, physPixmapSize);
+    pixmap.setDevicePixelRatio(dpr);
     pixmap.fill(QColor("#000000"));
 
     QPainter painter(&pixmap);

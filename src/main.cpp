@@ -5,6 +5,9 @@
 
 int main(int argc, char* argv[])
 {
+    QApplication::setHighDpiScaleFactorRoundingPolicy(
+        Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
+
     QApplication app(argc, argv);
     app.setApplicationName("TilePeek");
     app.setApplicationVersion(TILEPEEK_VERSION);

@@ -3,6 +3,7 @@
 #include "util/FormatUtils.h"
 
 #include <QContextMenuEvent>
+#include <QEvent>
 #include <QKeyEvent>
 #include <QMenu>
 #include <QMouseEvent>
@@ -18,6 +19,8 @@ MapViewport::MapViewport(QWidget* parent)
     setMouseTracking(false);
     setFocusPolicy(Qt::StrongFocus);
 
+    m_dpr = devicePixelRatioF();
+
     m_zoomSettleTimer.setSingleShot(true);
     m_zoomSettleTimer.setInterval(200);
     connect(&m_zoomSettleTimer, &QTimer::timeout, this, &MapViewport::onZoomSettled);
@@ -28,6 +31,8 @@ void MapViewport::setTileProvider(TileProvider* provider)
     m_provider = provider;
     m_cache.clear();
     m_tileSizeCache.clear();
+    if (m_provider)
+        m_provider->setDevicePixelRatio(m_dpr);
     update();
 }
 
@@ -263,6 +268,26 @@ void MapViewport::exitTileFocus()
 }
 
 // --- Paint ---
+
+bool MapViewport::event(QEvent* e)
+{
+    if (e->type() == QEvent::DevicePixelRatioChange) {
+        qreal newDpr = devicePixelRatioF();
+        if (newDpr != m_dpr) {
+            m_dpr = newDpr;
+            if (m_provider)
+                m_provider->setDevicePixelRatio(m_dpr);
+            m_cache.clear();
+            m_crispCache.clear();
+            m_crispScale = 0;
+            m_focusedTilePixmap = QPixmap();
+            if (m_tileFocusActive)
+                m_zoomSettleTimer.start();
+            update();
+        }
+    }
+    return QWidget::event(e);
+}
 
 void MapViewport::paintEvent(QPaintEvent* /*event*/)
 {

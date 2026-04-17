@@ -52,6 +52,7 @@ public:
     void removeInspectHighlightsForLayers(const QSet<QString>& layers);
 
 protected:
+    bool event(QEvent* event) override;
     void paintEvent(QPaintEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
@@ -93,6 +94,7 @@ private:
     int m_zoom = 0;
     double m_scale = 1.0;
     QPointF m_centerPixel;
+    qreal m_dpr = 1.0;
 
     bool m_dragging = false;
     QPoint m_lastMousePos;

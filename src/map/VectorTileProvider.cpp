@@ -42,7 +42,7 @@ std::optional<QPixmap> VectorTileProvider::tileAt(int zoom, int x, int y)
     auto tile = readAndDecode(zoom, x, y);
     if (!tile)
         return std::nullopt;
-    return VectorTileRenderer::render(*tile, m_layerColors, m_hiddenLayers, m_renderSize);
+    return VectorTileRenderer::render(*tile, m_layerColors, m_hiddenLayers, m_renderSize, m_dpr);
 }
 
 std::optional<QPixmap> VectorTileProvider::tileAtSize(int zoom, int x, int y, int size)
@@ -50,7 +50,7 @@ std::optional<QPixmap> VectorTileProvider::tileAtSize(int zoom, int x, int y, in
     auto tile = readAndDecode(zoom, x, y);
     if (!tile)
         return std::nullopt;
-    return VectorTileRenderer::render(*tile, m_layerColors, m_hiddenLayers, size);
+    return VectorTileRenderer::render(*tile, m_layerColors, m_hiddenLayers, size, m_dpr);
 }
 
 std::optional<UnclippedTileResult> VectorTileProvider::tileUnclipped(int zoom, int x, int y, int size)
@@ -58,7 +58,7 @@ std::optional<UnclippedTileResult> VectorTileProvider::tileUnclipped(int zoom, i
     auto tile = readAndDecode(zoom, x, y);
     if (!tile)
         return std::nullopt;
-    return VectorTileRenderer::renderUnclipped(*tile, m_layerColors, m_hiddenLayers, size);
+    return VectorTileRenderer::renderUnclipped(*tile, m_layerColors, m_hiddenLayers, size, m_dpr);
 }
 
 std::optional<int> VectorTileProvider::tileSizeAt(int zoom, int x, int y)
@@ -74,6 +74,11 @@ void VectorTileProvider::setHiddenLayers(const QSet<QString>& hidden)
 void VectorTileProvider::setRenderSize(int size)
 {
     m_renderSize = size;
+}
+
+void VectorTileProvider::setDevicePixelRatio(qreal dpr)
+{
+    m_dpr = dpr;
 }
 
 std::optional<mvt::Tile> VectorTileProvider::decodeTileAt(int zoom, int x, int y)

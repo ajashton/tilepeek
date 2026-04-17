@@ -25,6 +25,7 @@ public:
 
     void setHiddenLayers(const QSet<QString>& hidden);
     void setRenderSize(int size);
+    void setDevicePixelRatio(qreal dpr) override;
 
     std::optional<mvt::Tile> decodeTileAt(int zoom, int x, int y);
     const std::unordered_map<std::string, QColor>& layerColors() const { return m_layerColors; }
@@ -39,4 +40,5 @@ private:
     std::unordered_map<std::string, QColor> m_layerColors;
     QSet<QString> m_hiddenLayers;
     int m_renderSize = 256;
+    qreal m_dpr = 1.0;
 };
