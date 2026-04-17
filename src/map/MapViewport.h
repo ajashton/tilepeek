@@ -10,13 +10,14 @@
 #include <QWidget>
 #include <optional>
 #include <unordered_map>
+#include <unordered_set>
 
 class MapViewport : public QWidget {
     Q_OBJECT
 public:
     explicit MapViewport(QWidget* parent = nullptr);
 
-    void setTileProvider(TileProvider* provider);
+    void setTileProvider(std::shared_ptr<TileProvider> provider);
     void setView(double longitude, double latitude, int zoom);
     void clear();
 
@@ -73,12 +74,12 @@ private:
     void transitionZoom(int newZoom);
     double displayScale() const { return m_displayTileSize / 256.0; }
     QRect visibleTileRange() const;
-    QPixmap fetchTile(int zoom, int x, int y);
     std::optional<int> fetchTileSize(int zoom, int x, int y);
     QRectF tileScreenRect(int tx, int ty, QPointF viewCenter, double scaledTileSize) const;
     QPointF geoToScreen(double lon, double lat, QPointF viewCenter) const;
 
     void drawMissingTile(QPainter& painter, const QRectF& tileRect);
+    bool drawFallback(QPainter& painter, const QRectF& tileRect, int zoom, int x, int y);
     void drawTileOverlays(QPainter& painter, const QRect& tiles,
                           QPointF viewCenter, double scaledTileSize);
     void drawTileText(QPainter& painter, const QRectF& tileRect, const QStringList& lines);
@@ -87,9 +88,23 @@ private:
     void drawInspectHighlights(QPainter& painter, QPointF viewCenter, double scaledTileSize);
     void onZoomSettled();
 
-    TileProvider* m_provider = nullptr;
+    // Async tile production. All four dispatch work to the global QThreadPool
+    // and deliver results on the UI thread via QFutureWatcher.
+    void requestTileAsync(int zoom, int x, int y);
+    void requestCrispAsync(int zoom, int x, int y, int crispSize);
+    void requestUnclippedAsync(TileKey key, int size);
+    void cancelAllInFlight();
+
+    std::shared_ptr<TileProvider> m_provider;
     TileCache m_cache;
     std::unordered_map<TileKey, std::optional<int>, TileKeyHash> m_tileSizeCache;
+
+    // Tiles currently being rendered off-thread. Keyed on TileKey for the base
+    // cache path and on TileKey for the crisp cache path; dedupes repeat paint
+    // requests during a pan so we don't queue duplicate work.
+    std::unordered_set<TileKey, TileKeyHash> m_inFlightBase;
+    std::unordered_set<TileKey, TileKeyHash> m_inFlightCrisp;
+    bool m_inFlightUnclipped = false;
 
     int m_zoom = 0;
     double m_scale = 1.0;

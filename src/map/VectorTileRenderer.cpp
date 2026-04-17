@@ -1,22 +1,23 @@
 #include "map/VectorTileRenderer.h"
 #include "mvt/MvtGeometry.h"
 
+#include <QImage>
 #include <QPainter>
 #include <algorithm>
 #include <cmath>
 
-QPixmap VectorTileRenderer::render(const mvt::Tile& tile,
-                                    const std::unordered_map<std::string, QColor>& layerColors,
-                                    const QSet<QString>& hiddenLayers,
-                                    int tileSize,
-                                    qreal dpr)
+QImage VectorTileRenderer::render(const mvt::Tile& tile,
+                                   const std::unordered_map<std::string, QColor>& layerColors,
+                                   const QSet<QString>& hiddenLayers,
+                                   int tileSize,
+                                   qreal dpr)
 {
     int phys = static_cast<int>(std::lround(tileSize * dpr));
-    QPixmap pixmap(phys, phys);
-    pixmap.setDevicePixelRatio(dpr);
-    pixmap.fill(QColor("#000000"));
+    QImage image(phys, phys, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(QColor("#000000"));
 
-    QPainter painter(&pixmap);
+    QPainter painter(&image);
     painter.setRenderHint(QPainter::Antialiasing);
 
     for (const auto& layer : tile.layers) {
@@ -69,7 +70,7 @@ QPixmap VectorTileRenderer::render(const mvt::Tile& tile,
         }
     }
 
-    return pixmap;
+    return image;
 }
 
 static void drawFeatures(QPainter& painter, const mvt::Tile& tile,
@@ -160,17 +161,17 @@ UnclippedTileResult VectorTileRenderer::renderUnclipped(
     int pixmapSize = static_cast<int>(std::ceil(tileSize * totalRatio));
     int bufferPixels = static_cast<int>(std::round(tileSize * bufferRatio));
 
-    int physPixmapSize = static_cast<int>(std::lround(pixmapSize * dpr));
-    QPixmap pixmap(physPixmapSize, physPixmapSize);
-    pixmap.setDevicePixelRatio(dpr);
-    pixmap.fill(QColor("#000000"));
+    int physImageSize = static_cast<int>(std::lround(pixmapSize * dpr));
+    QImage image(physImageSize, physImageSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(QColor("#000000"));
 
-    QPainter painter(&pixmap);
+    QPainter painter(&image);
     painter.setRenderHint(QPainter::Antialiasing);
     painter.translate(bufferPixels, bufferPixels);
 
     // Draw all geometry using the base tileSize (geometry at [0,extent] maps to [0,tileSize])
     drawFeatures(painter, tile, layerColors, hiddenLayers, tileSize);
 
-    return {pixmap, bufferRatio};
+    return {std::move(image), bufferRatio};
 }

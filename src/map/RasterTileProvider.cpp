@@ -3,6 +3,7 @@
 #include <QBuffer>
 #include <QImage>
 #include <QImageReader>
+#include <QMutexLocker>
 
 RasterTileProvider::RasterTileProvider(std::unique_ptr<TileSource> source,
                                        const QString& formatHint,
@@ -14,9 +15,13 @@ RasterTileProvider::RasterTileProvider(std::unique_ptr<TileSource> source,
 {
 }
 
-std::optional<QPixmap> RasterTileProvider::tileAt(int zoom, int x, int y)
+std::optional<QImage> RasterTileProvider::tileAt(int zoom, int x, int y)
 {
-    auto blob = m_source->readTile(zoom, x, y);
+    std::optional<QByteArray> blob;
+    {
+        QMutexLocker lock(&m_sourceMutex);
+        blob = m_source->readTile(zoom, x, y);
+    }
     if (!blob)
         return std::nullopt;
 
@@ -25,11 +30,12 @@ std::optional<QPixmap> RasterTileProvider::tileAt(int zoom, int x, int y)
         if (!image.loadFromData(*blob))
             return std::nullopt;
     }
-    return QPixmap::fromImage(std::move(image));
+    return image;
 }
 
 std::optional<int> RasterTileProvider::tileSizeAt(int zoom, int x, int y)
 {
+    QMutexLocker lock(&m_sourceMutex);
     return m_source->tileSize(zoom, x, y);
 }
 

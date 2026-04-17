@@ -3,6 +3,7 @@
 #include "map/TileProvider.h"
 #include "map/TileSource.h"
 
+#include <QMutex>
 #include <QString>
 #include <memory>
 
@@ -18,7 +19,9 @@ public:
                        const QString& formatHint,
                        int minZoom, int maxZoom);
 
-    std::optional<QPixmap> tileAt(int zoom, int x, int y) override;
+    // Thread-safe: source access is serialized internally; QImage decoding
+    // happens on whatever thread calls this.
+    std::optional<QImage> tileAt(int zoom, int x, int y) override;
     std::optional<int> tileSizeAt(int zoom, int x, int y) override;
     int minZoom() const override { return m_minZoom; }
     int maxZoom() const override { return m_maxZoom; }
@@ -31,4 +34,5 @@ private:
     QString m_formatHint;
     int m_minZoom;
     int m_maxZoom;
+    mutable QMutex m_sourceMutex;
 };

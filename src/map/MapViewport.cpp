@@ -4,11 +4,13 @@
 
 #include <QContextMenuEvent>
 #include <QEvent>
+#include <QFutureWatcher>
 #include <QKeyEvent>
 #include <QMenu>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QWheelEvent>
+#include <QtConcurrent/QtConcurrentRun>
 
 #include <algorithm>
 
@@ -26,10 +28,13 @@ MapViewport::MapViewport(QWidget* parent)
     connect(&m_zoomSettleTimer, &QTimer::timeout, this, &MapViewport::onZoomSettled);
 }
 
-void MapViewport::setTileProvider(TileProvider* provider)
+void MapViewport::setTileProvider(std::shared_ptr<TileProvider> provider)
 {
-    m_provider = provider;
+    cancelAllInFlight();
+    m_provider = std::move(provider);
     m_cache.clear();
+    m_crispCache.clear();
+    m_crispScale = 0;
     m_tileSizeCache.clear();
     if (m_provider)
         m_provider->setDevicePixelRatio(m_dpr);
@@ -52,7 +57,8 @@ void MapViewport::setView(double longitude, double latitude, int zoom)
 
 void MapViewport::clear()
 {
-    m_provider = nullptr;
+    cancelAllInFlight();
+    m_provider.reset();
     m_cache.clear();
     m_crispCache.clear();
     m_crispScale = 0;
@@ -128,9 +134,12 @@ void MapViewport::setZoom(int zoom)
 
     m_zoom = zoom;
     m_scale = 1.0;
-    m_cache.evictOtherZooms(m_zoom);
+    // Intentionally keep old-zoom entries in m_cache — they serve as fallbacks
+    // while new-zoom tiles render asynchronously. LRU eviction handles the
+    // tail when they stop being drawn.
     m_crispCache.clear();
     m_crispScale = 0;
+    m_inFlightCrisp.clear();
     std::erase_if(m_tileSizeCache, [&](const auto& entry) {
         return entry.first.zoom != m_zoom;
     });
@@ -197,6 +206,7 @@ void MapViewport::clearTileCache()
     m_crispCache.clear();
     m_crispScale = 0;
     m_tileSizeCache.clear();
+    cancelAllInFlight();
     update();
 }
 
@@ -224,17 +234,15 @@ void MapViewport::focusTileAt(const QPoint& screenPos)
 
     auto key = tileAtScreenPos(screenPos);
     int renderSize = static_cast<int>(m_displayTileSize * m_scale);
-    auto result = m_provider->tileUnclipped(key.zoom, key.x, key.y, renderSize);
-    if (!result)
-        return;
 
     m_tileFocusActive = true;
     m_focusedTile = key;
-    m_focusedTilePixmap = result->pixmap;
-    m_focusBufferRatio = result->bufferRatio;
+    m_focusedTilePixmap = QPixmap();
+    m_focusBufferRatio = 0.0;
     m_tileFocusSelecting = false;
     setCursor(Qt::ArrowCursor);
     emit tileFocusChanged(true);
+    requestUnclippedAsync(key, renderSize);
     update();
 }
 
@@ -277,6 +285,7 @@ bool MapViewport::event(QEvent* e)
             m_dpr = newDpr;
             if (m_provider)
                 m_provider->setDevicePixelRatio(m_dpr);
+            cancelAllInFlight();
             m_cache.clear();
             m_crispCache.clear();
             m_crispScale = 0;
@@ -311,21 +320,32 @@ void MapViewport::paintEvent(QPaintEvent* /*event*/)
         for (int tx = tiles.left(); tx <= tiles.right(); ++tx) {
             QRectF tileRect = tileScreenRect(tx, ty, viewCenter, scaledTileSize);
 
-            // Prefer crisp (scale-matched) pixmap if available
+            // Prefer crisp (scale-matched) pixmap, then base pixmap, then a
+            // scaled crop of a cached parent-zoom tile, then the placeholder.
             TileKey key{m_zoom, tx, ty};
             QPixmap pixmap;
             if (hasCrisp) {
                 if (auto crisp = m_crispCache.get(key))
                     pixmap = *crisp;
             }
-            if (pixmap.isNull())
-                pixmap = fetchTile(m_zoom, tx, ty);
+            bool haveBase = false;
+            if (auto cached = m_cache.get(key)) {
+                if (pixmap.isNull())
+                    pixmap = *cached;
+                haveBase = true;
+            }
 
             if (!pixmap.isNull()) {
                 painter.drawPixmap(tileRect, pixmap, pixmap.rect());
-            } else {
+            } else if (!drawFallback(painter, tileRect, m_zoom, tx, ty)) {
                 drawMissingTile(painter, tileRect);
             }
+
+            // Kick off async render if the base cache doesn't have this tile
+            // yet. Dedupe via m_inFlightBase; the result handler triggers
+            // another paint when the tile lands.
+            if (!haveBase)
+                requestTileAsync(m_zoom, tx, ty);
         }
     }
 
@@ -647,34 +667,29 @@ void MapViewport::onZoomSettled()
         return;
 
     int crispSize = static_cast<int>(std::round(m_displayTileSize * m_scale));
-    if (crispSize == m_displayTileSize)
-        return; // at 1.0 scale, base pixmaps are already crisp
+    if (crispSize == m_displayTileSize) {
+        // At 1.0 scale the base pipeline is already crisp; nothing extra to render.
+        if (m_tileFocusActive)
+            requestUnclippedAsync(m_focusedTile, crispSize);
+        return;
+    }
+
+    // Record the target scale up front; results will be dropped if the scale
+    // has drifted by the time they arrive.
+    m_crispScale = m_scale;
 
     QRect tiles = visibleTileRange();
     for (int ty = tiles.top(); ty <= tiles.bottom(); ++ty) {
         for (int tx = tiles.left(); tx <= tiles.right(); ++tx) {
             TileKey key{m_zoom, tx, ty};
             if (m_crispCache.get(key))
-                continue; // already have this one
-
-            if (auto pixmap = m_provider->tileAtSize(m_zoom, tx, ty, crispSize))
-                m_crispCache.insert(key, *pixmap);
+                continue;
+            requestCrispAsync(m_zoom, tx, ty, crispSize);
         }
     }
 
-    m_crispScale = m_scale;
-
-    // Re-render focused tile at current scale
-    if (m_tileFocusActive) {
-        auto result = m_provider->tileUnclipped(
-            m_focusedTile.zoom, m_focusedTile.x, m_focusedTile.y, crispSize);
-        if (result) {
-            m_focusedTilePixmap = result->pixmap;
-            m_focusBufferRatio = result->bufferRatio;
-        }
-    }
-
-    update();
+    if (m_tileFocusActive)
+        requestUnclippedAsync(m_focusedTile, crispSize);
 }
 
 void MapViewport::clampViewport()
@@ -694,9 +709,11 @@ void MapViewport::transitionZoom(int newZoom)
         m_scale *= 2.0;
     }
     m_zoom = newZoom;
-    m_cache.evictOtherZooms(m_zoom);
+    // Intentionally keep old-zoom entries in m_cache as fallbacks during the
+    // async re-render of the new zoom level.
     m_crispCache.clear();
     m_crispScale = 0;
+    m_inFlightCrisp.clear();
 
     // Evict tile sizes for other zoom levels
     std::erase_if(m_tileSizeCache, [&](const auto& entry) {
@@ -834,20 +851,6 @@ void MapViewport::drawInspectHighlights(QPainter& painter, QPointF viewCenter,
     painter.restore();
 }
 
-QPixmap MapViewport::fetchTile(int zoom, int x, int y)
-{
-    TileKey key{zoom, x, y};
-    if (auto cached = m_cache.get(key))
-        return *cached;
-    if (m_provider) {
-        if (auto pixmap = m_provider->tileAt(zoom, x, y)) {
-            m_cache.insert(key, *pixmap);
-            return *pixmap;
-        }
-    }
-    return {};
-}
-
 std::optional<int> MapViewport::fetchTileSize(int zoom, int x, int y)
 {
     TileKey key{zoom, x, y};
@@ -860,4 +863,134 @@ std::optional<int> MapViewport::fetchTileSize(int zoom, int x, int y)
         size = m_provider->tileSizeAt(zoom, x, y);
     m_tileSizeCache[key] = size;
     return size;
+}
+
+// --- Fallback rendering ---
+
+bool MapViewport::drawFallback(QPainter& painter, const QRectF& tileRect,
+                                int zoom, int x, int y)
+{
+    // Walk up to 3 zoom levels looking for a cached ancestor tile; draw the
+    // appropriate sub-rect scaled into tileRect. m_cache.get() also promotes
+    // the ancestor to MRU, keeping it warm while it's still useful.
+    for (int d = 1; d <= 3 && zoom - d >= 0; ++d) {
+        int pz = zoom - d;
+        int px = x >> d;
+        int py = y >> d;
+        auto cached = m_cache.get({pz, px, py});
+        if (!cached)
+            continue;
+
+        int divisor = 1 << d;
+        qreal srcW = cached->width() / static_cast<qreal>(divisor);
+        qreal srcH = cached->height() / static_cast<qreal>(divisor);
+        qreal sx = (x - (px << d)) * srcW;
+        qreal sy = (y - (py << d)) * srcH;
+        painter.drawPixmap(tileRect, *cached, QRectF(sx, sy, srcW, srcH));
+        return true;
+    }
+    return false;
+}
+
+// --- Async tile production ---
+//
+// Each request dispatches provider work to the global QThreadPool via
+// QtConcurrent::run. The result is delivered back on the UI thread through a
+// QFutureWatcher, which is the only place where QImage is converted to
+// QPixmap (QPixmap construction requires the GUI thread).
+
+void MapViewport::requestTileAsync(int zoom, int x, int y)
+{
+    if (!m_provider)
+        return;
+    TileKey key{zoom, x, y};
+    if (!m_inFlightBase.insert(key).second)
+        return; // already in flight
+
+    auto provider = m_provider; // shared_ptr keeps provider alive for the job
+    auto* watcher = new QFutureWatcher<std::optional<QImage>>(this);
+    connect(watcher, &QFutureWatcherBase::finished, this, [this, key, watcher]() {
+        m_inFlightBase.erase(key);
+        auto img = watcher->result();
+        watcher->deleteLater();
+        if (img && !img->isNull()) {
+            m_cache.insert(key, QPixmap::fromImage(std::move(*img)));
+            update();
+        }
+    });
+    watcher->setFuture(QtConcurrent::run([provider, zoom, x, y]() {
+        return provider->tileAt(zoom, x, y);
+    }));
+}
+
+void MapViewport::requestCrispAsync(int zoom, int x, int y, int crispSize)
+{
+    if (!m_provider)
+        return;
+    TileKey key{zoom, x, y};
+    if (!m_inFlightCrisp.insert(key).second)
+        return;
+
+    // Snapshot scale at request time so stale results don't displace a fresh
+    // cache keyed to a different scale.
+    double requestScale = m_scale;
+
+    auto provider = m_provider;
+    auto* watcher = new QFutureWatcher<std::optional<QImage>>(this);
+    connect(watcher, &QFutureWatcherBase::finished, this,
+            [this, key, watcher, requestScale]() {
+        m_inFlightCrisp.erase(key);
+        auto img = watcher->result();
+        watcher->deleteLater();
+        if (!img || img->isNull())
+            return;
+        // Only install if the viewport is still at the same scale we rendered for.
+        if (m_scale != requestScale || key.zoom != m_zoom)
+            return;
+        m_crispCache.insert(key, QPixmap::fromImage(std::move(*img)));
+        update();
+    });
+    watcher->setFuture(QtConcurrent::run([provider, zoom, x, y, crispSize]() {
+        return provider->tileAtSize(zoom, x, y, crispSize);
+    }));
+}
+
+void MapViewport::requestUnclippedAsync(TileKey key, int size)
+{
+    if (!m_provider)
+        return;
+    if (m_inFlightUnclipped)
+        return; // one at a time; the latest focused state wins anyway
+    m_inFlightUnclipped = true;
+
+    auto provider = m_provider;
+    auto* watcher = new QFutureWatcher<std::optional<UnclippedTileResult>>(this);
+    connect(watcher, &QFutureWatcherBase::finished, this, [this, key, watcher]() {
+        m_inFlightUnclipped = false;
+        auto result = watcher->result();
+        watcher->deleteLater();
+        if (!result)
+            return;
+        // Drop if focus target moved on us.
+        if (!m_tileFocusActive || !(m_focusedTile == key))
+            return;
+        m_focusedTilePixmap = QPixmap::fromImage(std::move(result->image));
+        m_focusBufferRatio = result->bufferRatio;
+        update();
+    });
+    watcher->setFuture(QtConcurrent::run(
+        [provider, key, size]() {
+            return provider->tileUnclipped(key.zoom, key.x, key.y, size);
+        }));
+}
+
+void MapViewport::cancelAllInFlight()
+{
+    // We can't actually cancel QtConcurrent::run tasks, but we can make their
+    // results inert: clear the in-flight tracking so future dispatches re-queue
+    // if needed, and the result handlers will find nothing to do (the relevant
+    // caches are typically cleared alongside this call).
+    m_inFlightBase.clear();
+    m_inFlightCrisp.clear();
+    m_inFlightUnclipped = false;
 }

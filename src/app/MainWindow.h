@@ -53,7 +53,7 @@ private:
     MetadataSidebar* m_sidebar = nullptr;
     EmptyStateWidget* m_emptyState = nullptr;
     QStackedWidget* m_stack = nullptr;
-    std::unique_ptr<TileProvider> m_tileProvider;
+    std::shared_ptr<TileProvider> m_tileProvider;
 
     QThread* m_statsThread = nullptr;
 

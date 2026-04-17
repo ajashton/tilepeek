@@ -346,7 +346,7 @@ void MainWindow::loadMBTiles(const QString& path)
         populateTileScaleMenu(false);
     }
 
-    m_mapViewport->setTileProvider(m_tileProvider.get());
+    m_mapViewport->setTileProvider(m_tileProvider);
     m_stack->setCurrentIndex(1);
     m_zoomInAction->setEnabled(true);
     m_zoomOutAction->setEnabled(true);
@@ -485,7 +485,7 @@ void MainWindow::loadPMTiles(const QString& path)
         populateTileScaleMenu(false);
     }
 
-    m_mapViewport->setTileProvider(m_tileProvider.get());
+    m_mapViewport->setTileProvider(m_tileProvider);
     m_stack->setCurrentIndex(1);
     m_zoomInAction->setEnabled(true);
     m_zoomOutAction->setEnabled(true);

@@ -4,18 +4,18 @@
 #include "mvt/MvtTypes.h"
 
 #include <QColor>
-#include <QPixmap>
+#include <QImage>
 #include <QSet>
 #include <QString>
 #include <unordered_map>
 
 class VectorTileRenderer {
 public:
-    static QPixmap render(const mvt::Tile& tile,
-                          const std::unordered_map<std::string, QColor>& layerColors,
-                          const QSet<QString>& hiddenLayers,
-                          int tileSize = 256,
-                          qreal dpr = 1.0);
+    static QImage render(const mvt::Tile& tile,
+                         const std::unordered_map<std::string, QColor>& layerColors,
+                         const QSet<QString>& hiddenLayers,
+                         int tileSize = 256,
+                         qreal dpr = 1.0);
 
     static UnclippedTileResult renderUnclipped(const mvt::Tile& tile,
                                                const std::unordered_map<std::string, QColor>& layerColors,

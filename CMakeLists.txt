@@ -8,7 +8,7 @@ set(CMAKE_AUTOMOC ON)
 
 include(GNUInstallDirs)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets Sql Test)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Sql Test Concurrent)
 
 add_subdirectory(src)
 

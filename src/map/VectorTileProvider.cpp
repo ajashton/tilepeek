@@ -4,6 +4,8 @@
 #include "util/CetColormap.h"
 #include "util/GzipUtils.h"
 
+#include <QMutexLocker>
+
 VectorTileProvider::VectorTileProvider(std::unique_ptr<TileSource> source,
                                        int minZoom, int maxZoom,
                                        const QStringList& layerNames)
@@ -18,7 +20,11 @@ VectorTileProvider::VectorTileProvider(std::unique_ptr<TileSource> source,
 
 std::optional<mvt::Tile> VectorTileProvider::readAndDecode(int zoom, int x, int y)
 {
-    auto blob = m_source->readTile(zoom, x, y);
+    std::optional<QByteArray> blob;
+    {
+        QMutexLocker lock(&m_sourceMutex);
+        blob = m_source->readTile(zoom, x, y);
+    }
     if (!blob)
         return std::nullopt;
 
@@ -37,20 +43,29 @@ std::optional<mvt::Tile> VectorTileProvider::readAndDecode(int zoom, int x, int 
     return std::move(*result.tile);
 }
 
-std::optional<QPixmap> VectorTileProvider::tileAt(int zoom, int x, int y)
+VectorTileProvider::RenderState VectorTileProvider::snapshotRenderState() const
 {
-    auto tile = readAndDecode(zoom, x, y);
-    if (!tile)
-        return std::nullopt;
-    return VectorTileRenderer::render(*tile, m_layerColors, m_hiddenLayers, m_renderSize, m_dpr);
+    QMutexLocker lock(&m_sourceMutex);
+    return RenderState{m_hiddenLayers, m_renderSize, m_dpr};
 }
 
-std::optional<QPixmap> VectorTileProvider::tileAtSize(int zoom, int x, int y, int size)
+std::optional<QImage> VectorTileProvider::tileAt(int zoom, int x, int y)
 {
     auto tile = readAndDecode(zoom, x, y);
     if (!tile)
         return std::nullopt;
-    return VectorTileRenderer::render(*tile, m_layerColors, m_hiddenLayers, size, m_dpr);
+    auto state = snapshotRenderState();
+    return VectorTileRenderer::render(*tile, m_layerColors, state.hiddenLayers,
+                                      state.renderSize, state.dpr);
+}
+
+std::optional<QImage> VectorTileProvider::tileAtSize(int zoom, int x, int y, int size)
+{
+    auto tile = readAndDecode(zoom, x, y);
+    if (!tile)
+        return std::nullopt;
+    auto state = snapshotRenderState();
+    return VectorTileRenderer::render(*tile, m_layerColors, state.hiddenLayers, size, state.dpr);
 }
 
 std::optional<UnclippedTileResult> VectorTileProvider::tileUnclipped(int zoom, int x, int y, int size)
@@ -58,26 +73,38 @@ std::optional<UnclippedTileResult> VectorTileProvider::tileUnclipped(int zoom, i
     auto tile = readAndDecode(zoom, x, y);
     if (!tile)
         return std::nullopt;
-    return VectorTileRenderer::renderUnclipped(*tile, m_layerColors, m_hiddenLayers, size, m_dpr);
+    auto state = snapshotRenderState();
+    return VectorTileRenderer::renderUnclipped(*tile, m_layerColors, state.hiddenLayers,
+                                               size, state.dpr);
 }
 
 std::optional<int> VectorTileProvider::tileSizeAt(int zoom, int x, int y)
 {
+    QMutexLocker lock(&m_sourceMutex);
     return m_source->tileSize(zoom, x, y);
 }
 
 void VectorTileProvider::setHiddenLayers(const QSet<QString>& hidden)
 {
+    QMutexLocker lock(&m_sourceMutex);
     m_hiddenLayers = hidden;
+}
+
+QSet<QString> VectorTileProvider::hiddenLayers() const
+{
+    QMutexLocker lock(&m_sourceMutex);
+    return m_hiddenLayers;
 }
 
 void VectorTileProvider::setRenderSize(int size)
 {
+    QMutexLocker lock(&m_sourceMutex);
     m_renderSize = size;
 }
 
 void VectorTileProvider::setDevicePixelRatio(qreal dpr)
 {
+    QMutexLocker lock(&m_sourceMutex);
     m_dpr = dpr;
 }
 

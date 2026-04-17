@@ -1,8 +1,8 @@
 #pragma once
 
-#include <QPixmap>
+#include <QImage>
 
 struct UnclippedTileResult {
-    QPixmap pixmap;
+    QImage image;
     double bufferRatio = 0.0; // ratio of buffer to extent on each side
 };

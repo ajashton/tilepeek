@@ -36,7 +36,7 @@ target_include_directories(tilepeek_lib PUBLIC
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_SOURCE_DIR}/vendor
 )
-target_link_libraries(tilepeek_lib PUBLIC Qt6::Widgets Qt6::Sql ZLIB::ZLIB)
+target_link_libraries(tilepeek_lib PUBLIC Qt6::Widgets Qt6::Sql Qt6::Concurrent ZLIB::ZLIB)
 
 add_executable(tilepeek main.cpp ${TILEPEEK_RESOURCES_ICONS} ${TILEPEEK_RESOURCES_GRAPHICS})
 target_link_libraries(tilepeek PRIVATE tilepeek_lib)

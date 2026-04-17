@@ -22,7 +22,7 @@ struct TileKeyHash {
 
 class TileCache {
 public:
-    explicit TileCache(int capacity = 256);
+    explicit TileCache(int capacity = 384);
 
     void insert(const TileKey& key, QPixmap pixmap);
     std::optional<QPixmap> get(const TileKey& key);
