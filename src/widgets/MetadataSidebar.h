@@ -11,10 +11,10 @@
 #include <QSet>
 #include <QWidget>
 
-class QCheckBox;
 class QLabel;
 class QScrollArea;
 class QTabWidget;
+class QToolButton;
 class QVBoxLayout;
 struct TileStatistics;
 struct VectorLayerInfo;
@@ -41,7 +41,7 @@ signals:
     void featureIsolated(int index);
 
 private slots:
-    void onLayerCheckboxToggled();
+    void onLayerVisibilityToggled();
 
 private:
     void addSection(QVBoxLayout* layout, const QList<MetadataField>& fields,
@@ -67,7 +67,7 @@ private:
 
     // Vector mode (tabbed)
     QTabWidget* m_tabWidget = nullptr;
-    QMap<QString, QCheckBox*> m_layerCheckboxes;
+    QMap<QString, QToolButton*> m_layerVisibilityButtons;
     QJsonObject m_rawJson;
     int m_inspectTabIndex = -1;
     int m_selectedFeatureIndex = -1;
