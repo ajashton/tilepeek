@@ -478,7 +478,7 @@ QWidget* MetadataSidebar::buildLayersWidget(const QList<VectorLayerInfo>& layers
             form->setContentsMargins(0, 2, 0, 0);
             form->setHorizontalSpacing(12);
             form->setVerticalSpacing(2);
-            form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+            form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
 
             for (auto it = layer.fields.constBegin(); it != layer.fields.constEnd(); ++it) {
                 auto* fieldNameLabel = new QLabel(it.key());
@@ -560,7 +560,7 @@ void MetadataSidebar::addSection(QVBoxLayout* layout, const QList<MetadataField>
     form->setContentsMargins(0, 4, 0, 4);
     form->setHorizontalSpacing(12);
     form->setVerticalSpacing(6);
-    form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+    form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
 
     // Helper to collect messages for a field and create an icon widget
     auto makeFieldRow = [&](const QString& fieldName, QWidget* valueWidget) {
@@ -840,7 +840,7 @@ QWidget* MetadataSidebar::buildInspectWidget(const QList<mvt::HitTestResult>& re
             form->setContentsMargins(0, 2, 0, 0);
             form->setHorizontalSpacing(12);
             form->setVerticalSpacing(2);
-            form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+            form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
 
             for (const auto& [key, value] : result.properties) {
                 auto* keyLabel = new QLabel(key);
