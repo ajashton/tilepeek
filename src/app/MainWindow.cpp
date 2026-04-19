@@ -37,7 +37,7 @@ MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
 {
     setWindowTitle("TilePeek");
-    resize(1000, 700);
+    resize(1100, 700);
     setAcceptDrops(true);
 
     setupCentralWidget();
@@ -202,7 +202,7 @@ void MainWindow::setupCentralWidget()
     splitter->addWidget(m_mapViewport);
     splitter->setStretchFactor(0, 0);
     splitter->setStretchFactor(1, 1);
-    splitter->setSizes({300, 700});
+    splitter->setSizes({360, 740});
 
     m_stack->addWidget(m_emptyState);
     m_stack->addWidget(splitter);
