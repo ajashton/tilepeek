@@ -16,6 +16,7 @@ class TileStatsWorker;
 class QActionGroup;
 class QMenu;
 class QSlider;
+class QSplitter;
 class QStackedWidget;
 class QThread;
 struct TileStatistics;
@@ -31,6 +32,7 @@ public:
 protected:
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dropEvent(QDropEvent* event) override;
+    void closeEvent(QCloseEvent* event) override;
 
 private:
     void setupMenuBar();
@@ -53,6 +55,7 @@ private:
     MetadataSidebar* m_sidebar = nullptr;
     EmptyStateWidget* m_emptyState = nullptr;
     QStackedWidget* m_stack = nullptr;
+    QSplitter* m_splitter = nullptr;
     std::shared_ptr<TileProvider> m_tileProvider;
 
     QThread* m_statsThread = nullptr;

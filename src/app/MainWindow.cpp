@@ -19,6 +19,7 @@
 
 #include <QAction>
 #include <QActionGroup>
+#include <QCloseEvent>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QFileDialog>
@@ -37,7 +38,8 @@ MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
 {
     setWindowTitle("TilePeek");
-    resize(1100, 700);
+    QSettings settings;
+    resize(settings.value("window/size", QSize(1100, 700)).toSize());
     setAcceptDrops(true);
 
     setupCentralWidget();
@@ -195,17 +197,20 @@ void MainWindow::setupCentralWidget()
 
     m_emptyState = new EmptyStateWidget(m_stack);
 
-    auto* splitter = new QSplitter(Qt::Horizontal, m_stack);
-    m_sidebar = new MetadataSidebar(splitter);
-    m_mapViewport = new MapViewport(splitter);
-    splitter->addWidget(m_sidebar);
-    splitter->addWidget(m_mapViewport);
-    splitter->setStretchFactor(0, 0);
-    splitter->setStretchFactor(1, 1);
-    splitter->setSizes({360, 740});
+    m_splitter = new QSplitter(Qt::Horizontal, m_stack);
+    m_sidebar = new MetadataSidebar(m_splitter);
+    m_mapViewport = new MapViewport(m_splitter);
+    m_splitter->addWidget(m_sidebar);
+    m_splitter->addWidget(m_mapViewport);
+    m_splitter->setStretchFactor(0, 0);
+    m_splitter->setStretchFactor(1, 1);
+
+    QSettings settings;
+    int sidebarWidth = settings.value("window/sidebarWidth", 360).toInt();
+    m_splitter->setSizes({sidebarWidth, std::max(1, width() - sidebarWidth)});
 
     m_stack->addWidget(m_emptyState);
-    m_stack->addWidget(splitter);
+    m_stack->addWidget(m_splitter);
     m_stack->setCurrentWidget(m_emptyState);
 
     setCentralWidget(m_stack);
@@ -735,4 +740,13 @@ void MainWindow::dropEvent(QDropEvent* event)
             }
         }
     }
+}
+
+void MainWindow::closeEvent(QCloseEvent* event)
+{
+    QSettings settings;
+    if (!isMaximized())
+        settings.setValue("window/size", size());
+    settings.setValue("window/sidebarWidth", m_splitter->sizes().value(0));
+    QMainWindow::closeEvent(event);
 }
