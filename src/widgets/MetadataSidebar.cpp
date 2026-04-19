@@ -417,7 +417,11 @@ QWidget* MetadataSidebar::buildLayersWidget(const QList<VectorLayerInfo>& layers
 
         auto* swatch = new QFrame;
         swatch->setFixedSize(16, 16);
-        swatch->setStyleSheet(QString("background-color: %1;").arg(color.name()));
+        QColor fillColor = color;
+        fillColor.setAlphaF(0.5);
+        swatch->setStyleSheet(
+            QString("background-color: %1; border: 1px solid %2;")
+                .arg(fillColor.name(QColor::HexArgb), color.name()));
 
         auto* checkbox = new QCheckBox(layer.id);
         checkbox->setChecked(true);
