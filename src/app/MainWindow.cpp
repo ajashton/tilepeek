@@ -540,7 +540,7 @@ void MainWindow::onLayerVisibilityChanged(const QSet<QString>& hiddenLayers)
         QSet<QString> newlyHidden = hiddenLayers - vtp->hiddenLayers();
 
         vtp->setHiddenLayers(hiddenLayers);
-        m_mapViewport->clearTileCache();
+        m_mapViewport->invalidateTiles();
 
         // Remove highlights for newly hidden layers
         if (!newlyHidden.isEmpty())

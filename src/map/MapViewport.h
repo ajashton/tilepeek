@@ -45,6 +45,7 @@ public:
     void setBackgroundColor(const QColor& color);
     void setDisplayTileSize(int size);
     void clearTileCache();
+    void invalidateTiles();
 
     void setInspectHighlights(TileKey tile, double tileSize,
                               const QList<mvt::FeatureHighlight>& highlights);
@@ -130,6 +131,11 @@ private:
     QTimer m_zoomSettleTimer;
     TileCache m_crispCache;
     double m_crispScale = 0;
+
+    // Bumped by invalidateTiles() to soft-invalidate cached pixmaps without
+    // dropping them: cached entries stay drawable while the paint loop kicks
+    // off refresh requests for any whose stored generation lags behind.
+    int m_tileGeneration = 0;
 
     // Tile focus mode
     bool m_tileFocusActive = false;

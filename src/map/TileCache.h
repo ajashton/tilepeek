@@ -22,16 +22,23 @@ struct TileKeyHash {
 
 class TileCache {
 public:
+    struct Entry {
+        TileKey key;
+        QPixmap pixmap;
+        int generation;
+    };
+
     explicit TileCache(int capacity = 384);
 
-    void insert(const TileKey& key, QPixmap pixmap);
+    void insert(const TileKey& key, QPixmap pixmap, int generation = 0);
     std::optional<QPixmap> get(const TileKey& key);
+    std::optional<std::pair<QPixmap, int>> getWithGeneration(const TileKey& key);
     void clear();
     int size() const;
     void evictOtherZooms(int keepZoom);
 
 private:
     int m_capacity;
-    std::list<std::pair<TileKey, QPixmap>> m_list;
+    std::list<Entry> m_list;
     std::unordered_map<TileKey, decltype(m_list)::iterator, TileKeyHash> m_map;
 };

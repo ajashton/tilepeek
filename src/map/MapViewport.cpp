@@ -223,6 +223,23 @@ void MapViewport::clearTileCache()
     update();
 }
 
+void MapViewport::invalidateTiles()
+{
+    // Soft invalidation: bump the generation so existing pixmaps remain
+    // drawable but are flagged stale. The paint loop refreshes stale visible
+    // tiles asynchronously; old pixmaps stay on screen until their replacements
+    // arrive, so the user never sees the missing-tile placeholder. We
+    // intentionally do not reset m_crispScale, so crisp tiles continue to be
+    // preferred at fractional zooms during the swap.
+    ++m_tileGeneration;
+    cancelAllInFlight();
+    if (m_tileFocusActive) {
+        int crispSize = static_cast<int>(std::round(m_displayTileSize * m_scale));
+        requestUnclippedAsync(m_focusedTile, crispSize);
+    }
+    update();
+}
+
 void MapViewport::setTileFocusSelecting(bool on)
 {
     m_tileFocusSelecting = on;
@@ -330,6 +347,9 @@ void MapViewport::paintEvent(QPaintEvent* /*event*/)
         painter.setOpacity(0.3);
 
     bool hasCrisp = (m_crispScale == m_scale && m_crispScale != 0);
+    int crispSize = hasCrisp
+        ? static_cast<int>(std::round(m_displayTileSize * m_scale))
+        : 0;
     for (int ty = tiles.top(); ty <= tiles.bottom(); ++ty) {
         for (int tx = tiles.left(); tx <= tiles.right(); ++tx) {
             QRectF tileRect = tileScreenRect(tx, ty, viewCenter, scaledTileSize);
@@ -339,14 +359,19 @@ void MapViewport::paintEvent(QPaintEvent* /*event*/)
             TileKey key{m_zoom, tx, ty};
             QPixmap pixmap;
             if (hasCrisp) {
-                if (auto crisp = m_crispCache.get(key))
-                    pixmap = *crisp;
+                if (auto crisp = m_crispCache.getWithGeneration(key)) {
+                    pixmap = crisp->first;
+                    if (crisp->second != m_tileGeneration)
+                        requestCrispAsync(m_zoom, tx, ty, crispSize);
+                }
             }
             bool haveBase = false;
-            if (auto cached = m_cache.get(key)) {
+            if (auto cached = m_cache.getWithGeneration(key)) {
                 if (pixmap.isNull())
-                    pixmap = *cached;
+                    pixmap = cached->first;
                 haveBase = true;
+                if (cached->second != m_tileGeneration)
+                    requestTileAsync(m_zoom, tx, ty);
             }
 
             if (!pixmap.isNull()) {
@@ -924,16 +949,22 @@ void MapViewport::requestTileAsync(int zoom, int x, int y)
     if (!m_inFlightBase.insert(key).second)
         return; // already in flight
 
+    int requestGen = m_tileGeneration;
     auto provider = m_provider; // shared_ptr keeps provider alive for the job
     auto* watcher = new QFutureWatcher<std::optional<QImage>>(this);
-    connect(watcher, &QFutureWatcherBase::finished, this, [this, key, watcher]() {
+    connect(watcher, &QFutureWatcherBase::finished, this,
+            [this, key, watcher, requestGen]() {
         m_inFlightBase.erase(key);
         auto img = watcher->result();
         watcher->deleteLater();
-        if (img && !img->isNull()) {
-            m_cache.insert(key, QPixmap::fromImage(std::move(*img)));
-            update();
-        }
+        if (!img || img->isNull())
+            return;
+        // Drop results from a stale generation rather than overwriting with
+        // pixmaps rendered against an outdated visibility/style snapshot.
+        if (m_tileGeneration != requestGen)
+            return;
+        m_cache.insert(key, QPixmap::fromImage(std::move(*img)), requestGen);
+        update();
     });
     watcher->setFuture(QtConcurrent::run([provider, zoom, x, y]() {
         return provider->tileAt(zoom, x, y);
@@ -951,20 +982,24 @@ void MapViewport::requestCrispAsync(int zoom, int x, int y, int crispSize)
     // Snapshot scale at request time so stale results don't displace a fresh
     // cache keyed to a different scale.
     double requestScale = m_scale;
+    int requestGen = m_tileGeneration;
 
     auto provider = m_provider;
     auto* watcher = new QFutureWatcher<std::optional<QImage>>(this);
     connect(watcher, &QFutureWatcherBase::finished, this,
-            [this, key, watcher, requestScale]() {
+            [this, key, watcher, requestScale, requestGen]() {
         m_inFlightCrisp.erase(key);
         auto img = watcher->result();
         watcher->deleteLater();
         if (!img || img->isNull())
             return;
-        // Only install if the viewport is still at the same scale we rendered for.
+        // Only install if the viewport is still at the same scale and
+        // generation we rendered for.
         if (m_scale != requestScale || key.zoom != m_zoom)
             return;
-        m_crispCache.insert(key, QPixmap::fromImage(std::move(*img)));
+        if (m_tileGeneration != requestGen)
+            return;
+        m_crispCache.insert(key, QPixmap::fromImage(std::move(*img)), requestGen);
         update();
     });
     watcher->setFuture(QtConcurrent::run([provider, zoom, x, y, crispSize]() {
@@ -980,16 +1015,20 @@ void MapViewport::requestUnclippedAsync(TileKey key, int size)
         return; // one at a time; the latest focused state wins anyway
     m_inFlightUnclipped = true;
 
+    int requestGen = m_tileGeneration;
     auto provider = m_provider;
     auto* watcher = new QFutureWatcher<std::optional<UnclippedTileResult>>(this);
-    connect(watcher, &QFutureWatcherBase::finished, this, [this, key, watcher]() {
+    connect(watcher, &QFutureWatcherBase::finished, this,
+            [this, key, watcher, requestGen]() {
         m_inFlightUnclipped = false;
         auto result = watcher->result();
         watcher->deleteLater();
         if (!result)
             return;
-        // Drop if focus target moved on us.
+        // Drop if focus target moved on us or visibility changed mid-flight.
         if (!m_tileFocusActive || !(m_focusedTile == key))
+            return;
+        if (m_tileGeneration != requestGen)
             return;
         m_focusedTilePixmap = QPixmap::fromImage(std::move(result->image));
         m_focusBufferRatio = result->bufferRatio;

@@ -110,6 +110,61 @@ private slots:
         QVERIFY(cache.get({1, 1, 0}).has_value());
         QVERIFY(!cache.get({2, 0, 0}).has_value());
     }
+
+    void getWithGenerationDefaultsToZero()
+    {
+        TileCache cache(10);
+        QPixmap pm(1, 1);
+        cache.insert({0, 0, 0}, pm);
+
+        auto result = cache.getWithGeneration({0, 0, 0});
+        QVERIFY(result.has_value());
+        QCOMPARE(result->second, 0);
+    }
+
+    void getWithGenerationReturnsStoredTag()
+    {
+        TileCache cache(10);
+        QPixmap pm(1, 1);
+        cache.insert({0, 0, 0}, pm, 7);
+
+        auto result = cache.getWithGeneration({0, 0, 0});
+        QVERIFY(result.has_value());
+        QCOMPARE(result->second, 7);
+    }
+
+    void insertOverwriteUpdatesGeneration()
+    {
+        // A repeat insert with a newer generation must replace the stale tag —
+        // otherwise fresh re-renders would look stale to the paint loop and
+        // re-trigger themselves forever.
+        TileCache cache(10);
+        QPixmap pm(1, 1);
+        cache.insert({0, 0, 0}, pm, 3);
+        cache.insert({0, 0, 0}, pm, 9);
+
+        auto result = cache.getWithGeneration({0, 0, 0});
+        QVERIFY(result.has_value());
+        QCOMPARE(result->second, 9);
+    }
+
+    void generationSurvivesLruPromotion()
+    {
+        TileCache cache(3);
+        QPixmap pm(1, 1);
+        cache.insert({0, 0, 0}, pm, 4);
+        cache.insert({0, 1, 0}, pm, 5);
+        cache.insert({0, 2, 0}, pm, 6);
+
+        // Promote (0,0,0) to MRU then push an eviction.
+        QVERIFY(cache.get({0, 0, 0}).has_value());
+        cache.insert({0, 3, 0}, pm, 7);
+
+        auto result = cache.getWithGeneration({0, 0, 0});
+        QVERIFY(result.has_value());
+        QCOMPARE(result->second, 4);
+        QVERIFY(!cache.get({0, 1, 0}).has_value());
+    }
 };
 
 QTEST_MAIN(TestTileCache)
