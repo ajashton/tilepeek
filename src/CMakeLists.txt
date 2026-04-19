@@ -3,11 +3,13 @@ find_package(ZLIB REQUIRED)
 configure_file(version.h.in ${CMAKE_CURRENT_BINARY_DIR}/version.h @ONLY)
 
 qt_add_resources(TILEPEEK_RESOURCES_ICONS ${CMAKE_SOURCE_DIR}/resources/icons/icons.qrc)
+qt_add_resources(TILEPEEK_RESOURCES_ICON_THEMES ${CMAKE_SOURCE_DIR}/resources/icons/icon-themes.qrc)
 qt_add_resources(TILEPEEK_RESOURCES_GRAPHICS ${CMAKE_SOURCE_DIR}/resources/graphics/graphics.qrc)
 qt_add_resources(TILEPEEK_RESOURCES_TEXT ${CMAKE_SOURCE_DIR}/resources/text/text.qrc)
 
 add_library(tilepeek_lib STATIC
     app/AboutDialog.cpp
+    app/IconTheme.cpp
     app/MainWindow.cpp
     map/MapViewport.cpp
     map/RasterTileProvider.cpp
@@ -94,6 +96,7 @@ if(APPLE)
     add_executable(tilepeek MACOSX_BUNDLE
         main.cpp
         ${TILEPEEK_RESOURCES_ICONS}
+        ${TILEPEEK_RESOURCES_ICON_THEMES}
         ${TILEPEEK_RESOURCES_GRAPHICS}
         ${TILEPEEK_RESOURCES_TEXT}
         ${TILEPEEK_ICNS_PATH})
@@ -110,7 +113,7 @@ if(APPLE)
 
     target_link_libraries(tilepeek PRIVATE tilepeek_lib)
 else()
-    add_executable(tilepeek main.cpp ${TILEPEEK_RESOURCES_ICONS} ${TILEPEEK_RESOURCES_GRAPHICS} ${TILEPEEK_RESOURCES_TEXT})
+    add_executable(tilepeek main.cpp ${TILEPEEK_RESOURCES_ICONS} ${TILEPEEK_RESOURCES_ICON_THEMES} ${TILEPEEK_RESOURCES_GRAPHICS} ${TILEPEEK_RESOURCES_TEXT})
     target_link_libraries(tilepeek PRIVATE tilepeek_lib)
 
     # Install targets (Linux / XDG)

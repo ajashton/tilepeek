@@ -1,3 +1,4 @@
+#include "app/IconTheme.h"
 #include "app/MainWindow.h"
 #include "version.h"
 
@@ -52,6 +53,8 @@ int main(int argc, char* argv[])
     app.setOrganizationDomain("tilepeek.com");
     app.setApplicationVersion(TILEPEEK_VERSION);
     app.setDesktopFileName("com.tilepeek.TilePeek");
+
+    tilepeek::installBundledIconThemes();
 
     MainWindow window;
     window.show();
