@@ -409,6 +409,7 @@ QWidget* MetadataSidebar::buildLayersWidget(const QList<VectorLayerInfo>& layers
         headerLayout->setSpacing(2);
 
         auto* arrow = new QToolButton;
+        arrow->setStyleSheet("QToolButton { border: none; background: transparent; }");
         arrow->setArrowType(Qt::RightArrow);
         arrow->setAutoRaise(true);
         arrow->setCheckable(true);
