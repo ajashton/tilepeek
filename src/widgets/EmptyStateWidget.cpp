@@ -33,8 +33,9 @@ void EmptyStateWidget::paintEvent(QPaintEvent* /*event*/)
     if (!m_patternTile.isNull())
         painter.drawTiledPixmap(rect(), m_patternTile);
 
-    // 3. Measure the text
-    QString text = QStringLiteral("Drag & drop or open\na MBTiles or PMTiles file");
+    //: Empty-state prompt shown when no file is open. The literal "\n" in the
+    //: source preserves the two-line layout; keep a newline in translations.
+    QString text = tr("Drag & drop or open\na MBTiles or PMTiles file");
     QFont textFont = font();
     textFont.setPointSize(TextPointSize);
     textFont.setWeight(QFont::Normal);

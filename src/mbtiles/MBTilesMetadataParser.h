@@ -6,6 +6,7 @@
 #include "mbtiles/MBTilesReader.h"
 #include "model/TilesetMetadata.h"
 
+#include <QCoreApplication>
 #include <QList>
 #include <QString>
 #include <optional>
@@ -26,6 +27,7 @@ struct ParsedCenter {
 };
 
 class MBTilesMetadataParser {
+    Q_DECLARE_TR_FUNCTIONS(MBTilesMetadataParser)
 public:
     struct Result {
         TilesetMetadata metadata;

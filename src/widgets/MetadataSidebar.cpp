@@ -111,8 +111,12 @@ protected:
     {
         if (e->type() == QEvent::ToolTip) {
             auto* he = static_cast<QHelpEvent*>(e);
-            QString tip = QString("Zoom %1 — %2 tiles\n"
-                                  "p50: %3 | p90: %4 | p99: %5 | max: %6")
+            //: Tile-size statistics tooltip shown over each zoom row. %1 is
+            //: the zoom level, %2 is the tile count; %3..%6 are formatted
+            //: file sizes (e.g. "12 KiB").
+            QString tip = MetadataSidebar::tr(
+                "Zoom %1 \u2014 %2 tiles\n"
+                "p50: %3 | p90: %4 | p99: %5 | max: %6")
                               .arg(m_zoom)
                               .arg(QLocale().toString(m_stats.tileCount))
                               .arg(FormatUtils::formatTileSize(static_cast<int>(m_stats.p50Size)))
@@ -217,7 +221,7 @@ MetadataSidebar::MetadataSidebar(QWidget* parent)
     m_outerLayout = new QVBoxLayout(this);
     m_outerLayout->setContentsMargins(0, 0, 0, 0);
 
-    m_header = new QLabel("Metadata", this);
+    m_header = new QLabel(tr("Metadata"), this);
     m_header->setStyleSheet("font-weight: bold; font-size: 14px; padding: 8px;");
     m_outerLayout->addWidget(m_header);
 
@@ -299,7 +303,7 @@ void MetadataSidebar::setVectorMetadata(const TilesetMetadata& metadata,
     metaScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     metaScroll->setWidget(metaWidget);
     m_contentWidget = metaWidget;
-    m_tabWidget->addTab(metaScroll, "Metadata");
+    m_tabWidget->addTab(metaScroll, tr("Metadata"));
 
     // Layers tab
     auto* layersWidget = buildLayersWidget(vectorMeta.vectorLayers, layerColors);
@@ -308,7 +312,7 @@ void MetadataSidebar::setVectorMetadata(const TilesetMetadata& metadata,
     layersScroll->setFrameShape(QFrame::NoFrame);
     layersScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     layersScroll->setWidget(layersWidget);
-    m_tabWidget->addTab(layersScroll, "Layers");
+    m_tabWidget->addTab(layersScroll, tr("Layers"));
 
     m_rawJson = vectorMeta.rawJson;
 }
@@ -376,7 +380,7 @@ QWidget* MetadataSidebar::buildMetadataWidget(const TilesetMetadata& metadata, b
         line->setFrameShadow(QFrame::Sunken);
         layout->addWidget(line);
 
-        auto* jsonBtn = new QPushButton("View metadata JSON\u2026");
+        auto* jsonBtn = new QPushButton(tr("View metadata JSON\u2026"));
         connect(jsonBtn, &QPushButton::clicked, this, &MetadataSidebar::showJsonWindow);
         layout->addWidget(jsonBtn);
     }
@@ -437,11 +441,11 @@ QWidget* MetadataSidebar::buildLayersWidget(const QList<VectorLayerInfo>& layers
         visibilityBtn->setChecked(true);
         visibilityBtn->setFixedSize(20, 20);
         visibilityBtn->setIcon(QIcon::fromTheme("view-visible"));
-        visibilityBtn->setToolTip("Hide layer");
+        visibilityBtn->setToolTip(tr("Hide layer"));
         visibilityBtn->setStyleSheet("QToolButton { border: none; background: transparent; }");
-        connect(visibilityBtn, &QToolButton::toggled, this, [visibilityBtn](bool visible) {
+        connect(visibilityBtn, &QToolButton::toggled, this, [this, visibilityBtn](bool visible) {
             visibilityBtn->setIcon(QIcon::fromTheme(visible ? "view-visible" : "view-visible-off"));
-            visibilityBtn->setToolTip(visible ? "Hide layer" : "Show layer");
+            visibilityBtn->setToolTip(visible ? tr("Hide layer") : tr("Show layer"));
         });
         connect(visibilityBtn, &QToolButton::toggled, this, &MetadataSidebar::onLayerVisibilityToggled);
         m_layerVisibilityButtons[layer.id] = visibilityBtn;
@@ -461,7 +465,7 @@ QWidget* MetadataSidebar::buildLayersWidget(const QList<VectorLayerInfo>& layers
         detailLayout->setSpacing(4);
 
         if (layer.description.isEmpty() && layer.fields.isEmpty()) {
-            auto* emptyLabel = new QLabel("No description or fields");
+            auto* emptyLabel = new QLabel(tr("No description or fields"));
             emptyLabel->setStyleSheet("font-style: italic;");
             setSubduedTextColor(emptyLabel);
             detailLayout->addWidget(emptyLabel);
@@ -525,7 +529,7 @@ void MetadataSidebar::onLayerVisibilityToggled()
 void MetadataSidebar::showJsonWindow()
 {
     auto* dialog = new QDialog(this);
-    dialog->setWindowTitle("Metadata JSON");
+    dialog->setWindowTitle(tr("Metadata JSON"));
     dialog->resize(600, 500);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
 
@@ -612,7 +616,7 @@ void MetadataSidebar::addSection(QVBoxLayout* layout, const QList<MetadataField>
         auto* nameLabel = new QLabel(missing.name);
         nameLabel->setStyleSheet("font-weight: bold; color: #555;");
 
-        auto* valueLabel = new WrappingLabel("missing");
+        auto* valueLabel = new WrappingLabel(tr("missing"));
         valueLabel->setStyleSheet("font-style: italic;");
         setSubduedTextColor(valueLabel);
 
@@ -686,7 +690,7 @@ void MetadataSidebar::setStatsPlaceholder()
     line->setFrameShadow(QFrame::Sunken);
     m_statsLayout->addWidget(line);
 
-    auto* label = new QLabel("calculating...");
+    auto* label = new QLabel(tr("calculating..."));
     label->setStyleSheet("color: #999; font-style: italic; padding: 4px 0;");
     m_statsLayout->addWidget(label);
 }
@@ -702,11 +706,11 @@ void MetadataSidebar::setTileStatistics(const TileStatistics& stats)
     line->setFrameShadow(QFrame::Sunken);
     m_statsLayout->addWidget(line);
 
-    auto* header = new QLabel("Statistics");
+    auto* header = new QLabel(tr("Statistics"));
     header->setStyleSheet("font-weight: bold; padding: 4px 0;");
     m_statsLayout->addWidget(header);
 
-    auto* subhead = new QLabel("Tile size by zoom level:");
+    auto* subhead = new QLabel(tr("Tile size by zoom level:"));
     subhead->setStyleSheet("padding: 0 0 2px 0;");
     m_statsLayout->addWidget(subhead);
 
@@ -723,7 +727,8 @@ void MetadataSidebar::setTileStatistics(const TileStatistics& stats)
 
     // Max size label aligned right
     if (globalMax > 0) {
-        auto* maxLabel = new QLabel("max: " + FormatUtils::formatTileSize(static_cast<int>(globalMax)));
+        auto* maxLabel = new QLabel(tr("max: %1").arg(
+            FormatUtils::formatTileSize(static_cast<int>(globalMax))));
         maxLabel->setAlignment(Qt::AlignRight);
         maxLabel->setStyleSheet("padding: 2px 0;");
         m_statsLayout->addWidget(maxLabel);
@@ -744,7 +749,7 @@ void MetadataSidebar::setInspectResults(const QList<mvt::HitTestResult>& results
     inspectScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     inspectScroll->setWidget(inspectWidget);
 
-    m_inspectTabIndex = m_tabWidget->addTab(inspectScroll, "Inspect");
+    m_inspectTabIndex = m_tabWidget->addTab(inspectScroll, tr("Inspect"));
     m_tabWidget->setCurrentIndex(m_inspectTabIndex);
 }
 
@@ -802,10 +807,10 @@ QWidget* MetadataSidebar::buildInspectWidget(const QList<mvt::HitTestResult>& re
         // Geometry type label
         QString geomText;
         switch (result.geomType) {
-        case mvt::GeomType::Point: geomText = "Point"; break;
-        case mvt::GeomType::LineString: geomText = "Line"; break;
-        case mvt::GeomType::Polygon: geomText = "Polygon"; break;
-        default: geomText = "Unknown"; break;
+        case mvt::GeomType::Point: geomText = tr("Point"); break;
+        case mvt::GeomType::LineString: geomText = tr("Line"); break;
+        case mvt::GeomType::Polygon: geomText = tr("Polygon"); break;
+        default: geomText = tr("Unknown"); break;
         }
         auto* geomLabel = new QLabel(geomText);
         setSubduedTextColor(geomLabel);
@@ -813,7 +818,7 @@ QWidget* MetadataSidebar::buildInspectWidget(const QList<mvt::HitTestResult>& re
         // Feature ID label
         QString idText = result.featureId
                              ? QString::number(*result.featureId)
-                             : "(no id)";
+                             : tr("(no id)");
         auto* idLabel = new QLabel(idText);
         setSubduedTextColor(idLabel);
 
@@ -833,7 +838,7 @@ QWidget* MetadataSidebar::buildInspectWidget(const QList<mvt::HitTestResult>& re
         detailLayout->setSpacing(4);
 
         if (result.properties.isEmpty()) {
-            auto* emptyLabel = new QLabel("No properties");
+            auto* emptyLabel = new QLabel(tr("No properties"));
             emptyLabel->setStyleSheet("font-style: italic;");
             setSubduedTextColor(emptyLabel);
             detailLayout->addWidget(emptyLabel);

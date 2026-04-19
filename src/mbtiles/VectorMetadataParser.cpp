@@ -14,13 +14,13 @@ VectorMetadataResult VectorMetadataParser::parse(const QString& jsonString)
     auto doc = QJsonDocument::fromJson(jsonString.toUtf8(), &parseError);
     if (doc.isNull()) {
         result.messages.append({ValidationMessage::Level::Error,
-                                "Invalid JSON: " + parseError.errorString(), "json"});
+                                tr("Invalid JSON: %1").arg(parseError.errorString()), "json"});
         return result;
     }
 
     if (!doc.isObject()) {
         result.messages.append(
-            {ValidationMessage::Level::Error, "Must be a JSON object", "json"});
+            {ValidationMessage::Level::Error, tr("Must be a JSON object"), "json"});
         return result;
     }
 
@@ -31,14 +31,14 @@ VectorMetadataResult VectorMetadataParser::parse(const QString& jsonString)
     // Check for required vector_layers
     if (!obj.contains("vector_layers")) {
         result.messages.append({ValidationMessage::Level::Error,
-                                "Missing required 'vector_layers'", "json"});
+                                tr("Missing required 'vector_layers'"), "json"});
         return result;
     }
 
     auto layersVal = obj["vector_layers"];
     if (!layersVal.isArray()) {
         result.messages.append(
-            {ValidationMessage::Level::Error, "'vector_layers' must be a JSON array", "json"});
+            {ValidationMessage::Level::Error, tr("'vector_layers' must be a JSON array"), "json"});
         return result;
     }
 

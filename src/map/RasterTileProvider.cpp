@@ -67,7 +67,7 @@ FormatValidationResult RasterTileProvider::validateFormat()
 {
     if (m_formatHint == "pbf") {
         return {FormatValidationResult::Status::Unsupported,
-                "Vector tile format (pbf) is not yet supported"};
+                tr("Vector tile format (pbf) is not yet supported")};
     }
 
     // Check if format is a recognized image format
@@ -82,7 +82,7 @@ FormatValidationResult RasterTileProvider::validateFormat()
 
     if (!formatRecognized) {
         return {FormatValidationResult::Status::UnrecognizedFormat,
-                "Unrecognized tile format: " + m_formatHint};
+                tr("Unrecognized tile format: %1").arg(m_formatHint)};
     }
 
     // Try to read a sample tile to validate format matches data
@@ -102,11 +102,11 @@ FormatValidationResult RasterTileProvider::validateFormat()
     if (autoReader.canRead()) {
         QString detected = QString::fromLatin1(autoReader.format());
         return {FormatValidationResult::Status::FormatMismatch,
-                QString("Tile format metadata says '%1' but tiles appear to be '%2'")
+                tr("Tile format metadata says '%1' but tiles appear to be '%2'")
                     .arg(m_formatHint, detected)};
     }
 
     return {FormatValidationResult::Status::FormatMismatch,
-            "Tile data does not match declared format '" + m_formatHint
-                + "' and could not be decoded"};
+            tr("Tile data does not match declared format '%1' and could not be decoded")
+                .arg(m_formatHint)};
 }

@@ -7,7 +7,10 @@
 
 #include <QApplication>
 #include <QFileOpenEvent>
+#include <QLibraryInfo>
+#include <QLocale>
 #include <QString>
+#include <QTranslator>
 
 namespace {
 
@@ -58,6 +61,20 @@ int main(int argc, char* argv[])
     app.setDesktopFileName("com.tilepeek.TilePeek");
 
     tilepeek::installBundledIconThemes();
+
+    // Load Qt's own translations for standard dialog buttons (Open/Cancel, etc.).
+    auto* qtTranslator = new QTranslator(&app);
+    if (qtTranslator->load(QLocale(), QStringLiteral("qtbase"), QStringLiteral("_"),
+            QLibraryInfo::path(QLibraryInfo::TranslationsPath))) {
+        app.installTranslator(qtTranslator);
+    }
+
+    // Load TilePeek's translations, embedded via qt_add_translations().
+    auto* appTranslator = new QTranslator(&app);
+    if (appTranslator->load(QLocale(), QStringLiteral("tilepeek"), QStringLiteral("_"),
+            QStringLiteral(":/i18n"))) {
+        app.installTranslator(appTranslator);
+    }
 
     MainWindow window;
     window.show();

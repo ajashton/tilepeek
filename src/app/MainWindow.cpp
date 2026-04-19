@@ -40,7 +40,7 @@
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
 {
-    setWindowTitle("TilePeek");
+    setWindowTitle(tr("TilePeek"));
     QSettings settings;
     resize(settings.value("window/size", QSize(1100, 700)).toSize());
     setAcceptDrops(true);
@@ -59,20 +59,20 @@ MainWindow::~MainWindow()
 
 void MainWindow::setupMenuBar()
 {
-    auto* fileMenu = menuBar()->addMenu("&File");
+    auto* fileMenu = menuBar()->addMenu(tr("&File"));
 
-    auto* openAction = fileMenu->addAction("&Open...");
+    auto* openAction = fileMenu->addAction(tr("&Open..."));
     openAction->setShortcut(QKeySequence::Open);
     connect(openAction, &QAction::triggered, this, &MainWindow::onOpenFile);
 
     fileMenu->addSeparator();
 
-    auto* quitAction = fileMenu->addAction("&Quit");
+    auto* quitAction = fileMenu->addAction(tr("&Quit"));
     quitAction->setShortcut(QKeySequence::Quit);
     connect(quitAction, &QAction::triggered, this, &QWidget::close);
 
     // View menu
-    auto* viewMenu = menuBar()->addMenu("&View");
+    auto* viewMenu = menuBar()->addMenu(tr("&View"));
 
     QSettings settings;
 
@@ -88,37 +88,37 @@ void MainWindow::setupMenuBar()
         return action;
     };
 
-    addViewToggle("Show Tile &Boundaries", "view/showTileBoundaries",
+    addViewToggle(tr("Show Tile &Boundaries"), "view/showTileBoundaries",
                   &MapViewport::setShowTileBoundaries);
-    addViewToggle("Show Tile &IDs", "view/showTileIds",
+    addViewToggle(tr("Show Tile &IDs"), "view/showTileIds",
                   &MapViewport::setShowTileIds);
-    addViewToggle("Show Tile &Sizes", "view/showTileSizes",
+    addViewToggle(tr("Show Tile &Sizes"), "view/showTileSizes",
                   &MapViewport::setShowTileSizes);
 
     viewMenu->addSeparator();
 
-    addViewToggle("Show B&ounds Box", "view/showBoundsBox",
+    addViewToggle(tr("Show B&ounds Box"), "view/showBoundsBox",
                   &MapViewport::setShowBounds);
-    addViewToggle("Show &Center Point", "view/showCenterPoint",
+    addViewToggle(tr("Show &Center Point"), "view/showCenterPoint",
                   &MapViewport::setShowCenter);
 
     viewMenu->addSeparator();
 
-    m_zoomToBoundsAction = viewMenu->addAction("&Zoom to Tileset Bounds");
+    m_zoomToBoundsAction = viewMenu->addAction(tr("&Zoom to Tileset Bounds"));
     m_zoomToBoundsAction->setEnabled(false);
     connect(m_zoomToBoundsAction, &QAction::triggered, this, &MainWindow::zoomToTilesetBounds);
 
     viewMenu->addSeparator();
 
-    m_tileScaleMenu = viewMenu->addMenu("Tile &Scale");
+    m_tileScaleMenu = viewMenu->addMenu(tr("Tile &Scale"));
     m_tileScaleMenu->setEnabled(false);
     m_tileScaleGroup = new QActionGroup(this);
     m_tileScaleGroup->setExclusive(true);
     connect(m_tileScaleGroup, &QActionGroup::triggered, this, &MainWindow::onTileScaleChanged);
 
     // Help menu
-    auto* helpMenu = menuBar()->addMenu("&Help");
-    auto* aboutAction = helpMenu->addAction("&About TilePeek\u2026");
+    auto* helpMenu = menuBar()->addMenu(tr("&Help"));
+    auto* aboutAction = helpMenu->addAction(tr("&About TilePeek\u2026"));
     connect(aboutAction, &QAction::triggered, this, [this] {
         AboutDialog dlg(this);
         dlg.exec();
@@ -127,17 +127,18 @@ void MainWindow::setupMenuBar()
 
 void MainWindow::setupToolBar()
 {
-    auto* toolbar = addToolBar("Main");
+    //: Name of the main toolbar shown in the toolbar visibility menu.
+    auto* toolbar = addToolBar(tr("Main"));
     toolbar->setMovable(false);
 
     auto* openAction = toolbar->addAction(
-        QIcon::fromTheme("document-open"), "Open File...");
+        QIcon::fromTheme("document-open"), tr("Open File..."));
     connect(openAction, &QAction::triggered, this, &MainWindow::onOpenFile);
 
     toolbar->addSeparator();
 
     m_tileFocusAction = toolbar->addAction(
-        QIcon::fromTheme("crosshairs"), "Focus Tile");
+        QIcon::fromTheme("crosshairs"), tr("Focus Tile"));
     m_tileFocusAction->setCheckable(true);
     m_tileFocusAction->setEnabled(false);
     m_tileFocusAction->setVisible(false);
@@ -153,7 +154,7 @@ void MainWindow::setupToolBar()
     });
 
     auto* zoomToBoundsToolbarAction = toolbar->addAction(
-        QIcon::fromTheme("zoom-fit-best"), "Zoom to Tileset Bounds");
+        QIcon::fromTheme("zoom-fit-best"), tr("Zoom to Tileset Bounds"));
     zoomToBoundsToolbarAction->setEnabled(false);
     connect(zoomToBoundsToolbarAction, &QAction::triggered, this, &MainWindow::zoomToTilesetBounds);
     // Keep in sync with the menu action's enabled state
@@ -166,7 +167,7 @@ void MainWindow::setupToolBar()
     toolbar->addWidget(spacer);
 
     m_zoomOutAction = toolbar->addAction(
-        QIcon::fromTheme("zoom-out"), "Zoom Out");
+        QIcon::fromTheme("zoom-out"), tr("Zoom Out"));
     m_zoomOutAction->setEnabled(false);
     connect(m_zoomOutAction, &QAction::triggered, m_mapViewport, &MapViewport::zoomOut);
 
@@ -181,7 +182,7 @@ void MainWindow::setupToolBar()
     toolbar->addWidget(m_zoomSlider);
 
     auto updateZoomTooltip = [this](int value) {
-        m_zoomSlider->setToolTip(QString("Zoom level %1").arg(value));
+        m_zoomSlider->setToolTip(tr("Zoom level %1").arg(value));
     };
     connect(m_zoomSlider, &QSlider::valueChanged, m_mapViewport, &MapViewport::setZoom);
     connect(m_zoomSlider, &QSlider::valueChanged, this, updateZoomTooltip);
@@ -189,7 +190,7 @@ void MainWindow::setupToolBar()
     connect(m_mapViewport, &MapViewport::zoomChanged, this, updateZoomTooltip);
 
     m_zoomInAction = toolbar->addAction(
-        QIcon::fromTheme("zoom-in"), "Zoom In");
+        QIcon::fromTheme("zoom-in"), tr("Zoom In"));
     m_zoomInAction->setEnabled(false);
     connect(m_zoomInAction, &QAction::triggered, m_mapViewport, &MapViewport::zoomIn);
 }
@@ -221,9 +222,13 @@ void MainWindow::setupCentralWidget()
 
 void MainWindow::onOpenFile()
 {
-    QString path = QFileDialog::getOpenFileName(
-        this, "Open Tile Archive", QString(),
+    //: File dialog filter. Preserve the "*.mbtiles"/"*.pmtiles"/"*" glob
+    //: patterns and the ";;" separators exactly; translate only the
+    //: descriptive labels in parentheses.
+    const QString filter = tr(
         "Tile Archives (*.mbtiles *.pmtiles);;MBTiles Files (*.mbtiles);;PMTiles Files (*.pmtiles);;All Files (*)");
+    QString path = QFileDialog::getOpenFileName(
+        this, tr("Open Tile Archive"), QString(), filter);
     if (!path.isEmpty())
         openFile(path);
 }
@@ -242,13 +247,13 @@ void MainWindow::loadMBTiles(const QString& path)
 
     auto reader = std::make_unique<MBTilesReader>(path);
     if (!reader->open()) {
-        QMessageBox::warning(this, "Error", "Failed to open file: " + path);
+        QMessageBox::warning(this, tr("Error"), tr("Failed to open file: %1").arg(path));
         return;
     }
 
     auto validation = reader->validateSchema();
     if (!validation.metadataTableValid || !validation.tilesTableValid) {
-        QMessageBox::warning(this, "Error", validation.errors.join("\n"));
+        QMessageBox::warning(this, tr("Error"), validation.errors.join("\n"));
         return;
     }
 
@@ -294,7 +299,7 @@ void MainWindow::loadMBTiles(const QString& path)
         auto jsonStr = metadata.value("json");
         if (!jsonStr) {
             messages.append({ValidationMessage::Level::Error,
-                             "Missing required 'json' metadata key for pbf format", "json"});
+                             tr("Missing required 'json' metadata key for pbf format"), "json"});
             m_sidebar->setMetadata(metadata, messages);
         } else {
             auto vResult = VectorMetadataParser::parse(*jsonStr);
@@ -335,10 +340,10 @@ void MainWindow::loadMBTiles(const QString& path)
         auto formatResult = provider->validateFormat();
         switch (formatResult.status) {
         case FormatValidationResult::Status::Unsupported:
-            QMessageBox::warning(this, "Error", formatResult.message);
+            QMessageBox::warning(this, tr("Error"), formatResult.message);
             return;
         case FormatValidationResult::Status::UnrecognizedFormat:
-            QMessageBox::warning(this, "Error", formatResult.message);
+            QMessageBox::warning(this, tr("Error"), formatResult.message);
             return;
         case FormatValidationResult::Status::FormatMismatch:
             messages.append({ValidationMessage::Level::Warning, formatResult.message, "format"});
@@ -377,7 +382,7 @@ void MainWindow::loadMBTiles(const QString& path)
         m_mapViewport->setView(0.0, 0.0, minZoom);
     }
 
-    setWindowTitle("TilePeek - " + QFileInfo(path).fileName());
+    setWindowTitle(tr("TilePeek - %1").arg(QFileInfo(path).fileName()));
 
     // Start async tile statistics
     m_sidebar->setStatsPlaceholder();
@@ -402,13 +407,13 @@ void MainWindow::loadPMTiles(const QString& path)
 
     auto reader = std::make_unique<PMTilesReader>(path);
     if (!reader->open()) {
-        QMessageBox::warning(this, "Error", "Failed to open file: " + path);
+        QMessageBox::warning(this, tr("Error"), tr("Failed to open file: %1").arg(path));
         return;
     }
 
     auto validation = reader->validate();
     if (!validation.valid) {
-        QMessageBox::warning(this, "Error", validation.errors.join("\n"));
+        QMessageBox::warning(this, tr("Error"), validation.errors.join("\n"));
         return;
     }
 
@@ -448,7 +453,7 @@ void MainWindow::loadPMTiles(const QString& path)
         if (!jsonStr) {
             if (!jsonMeta.isEmpty())
                 messages.append({ValidationMessage::Level::Warning,
-                                 "No vector_layers found in PMTiles metadata"});
+                                 tr("No vector_layers found in PMTiles metadata")});
             m_sidebar->setMetadata(metadata, messages);
         } else {
             auto vResult = VectorMetadataParser::parse(*jsonStr);
@@ -516,7 +521,7 @@ void MainWindow::loadPMTiles(const QString& path)
         m_mapViewport->setView(0.0, 0.0, minZoom);
     }
 
-    setWindowTitle("TilePeek - " + QFileInfo(path).fileName());
+    setWindowTitle(tr("TilePeek - %1").arg(QFileInfo(path).fileName()));
 
     // Start async tile statistics
     m_sidebar->setStatsPlaceholder();
@@ -627,9 +632,10 @@ void MainWindow::populateTileScaleMenu(bool isVector)
     m_isVectorFormat = isVector;
 
     if (isVector) {
-        struct Preset { const char* label; int size; };
-        constexpr Preset presets[] = {{"256px", 256}, {"512px", 512}, {"1024px", 1024}};
-        for (auto [label, size] : presets) {
+        struct Preset { QString label; int size; };
+        const Preset presets[] = {
+            {tr("256px"), 256}, {tr("512px"), 512}, {tr("1024px"), 1024}};
+        for (const auto& [label, size] : presets) {
             auto* action = m_tileScaleMenu->addAction(label);
             action->setCheckable(true);
             action->setData(size);
@@ -638,10 +644,10 @@ void MainWindow::populateTileScaleMenu(bool isVector)
                 action->setChecked(true);
         }
     } else {
-        struct Preset { const char* label; int factor; };
-        constexpr Preset presets[] = {
-            {"1\xc3\x97 (Native)", 1}, {"2\xc3\x97", 2}, {"3\xc3\x97", 3}};
-        for (auto [label, factor] : presets) {
+        struct Preset { QString label; int factor; };
+        const Preset presets[] = {
+            {tr("1\u00d7 (Native)"), 1}, {tr("2\u00d7"), 2}, {tr("3\u00d7"), 3}};
+        for (const auto& [label, factor] : presets) {
             auto* action = m_tileScaleMenu->addAction(label);
             action->setCheckable(true);
             action->setData(factor);
@@ -712,7 +718,7 @@ void MainWindow::clearCurrentFile()
     m_tilesetBounds.reset();
     m_nativeTileSize = 256;
     m_isVectorFormat = false;
-    setWindowTitle("TilePeek");
+    setWindowTitle(tr("TilePeek"));
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* event)

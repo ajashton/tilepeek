@@ -11,6 +11,7 @@
 #include <pmtiles.hpp>
 
 class PMTilesMetadataParser {
+    Q_DECLARE_TR_FUNCTIONS(PMTilesMetadataParser)
 public:
     struct Result {
         TilesetMetadata metadata;

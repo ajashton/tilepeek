@@ -32,6 +32,7 @@ struct VectorMetadataResult {
 };
 
 class VectorMetadataParser {
+    Q_DECLARE_TR_FUNCTIONS(VectorMetadataParser)
 public:
     static VectorMetadataResult parse(const QString& jsonString);
 };

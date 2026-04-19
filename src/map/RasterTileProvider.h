@@ -6,6 +6,7 @@
 #include "map/TileProvider.h"
 #include "map/TileSource.h"
 
+#include <QCoreApplication>
 #include <QMutex>
 #include <QString>
 #include <memory>
@@ -17,6 +18,7 @@ struct FormatValidationResult {
 };
 
 class RasterTileProvider : public TileProvider {
+    Q_DECLARE_TR_FUNCTIONS(RasterTileProvider)
 public:
     RasterTileProvider(std::unique_ptr<TileSource> source,
                        const QString& formatHint,
