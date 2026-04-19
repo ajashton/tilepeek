@@ -3,7 +3,6 @@
 #include "model/TileStatistics.h"
 #include "util/FormatUtils.h"
 
-#include <QCheckBox>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QFormLayout>
@@ -245,7 +244,7 @@ void MetadataSidebar::clear()
     if (!m_scrollArea->parent()) {
         // If scrollArea was removed from layout for tab mode, re-add it
     }
-    m_layerCheckboxes.clear();
+    m_layerVisibilityButtons.clear();
     m_rawJson = QJsonObject();
     m_inspectTabIndex = -1;
     m_selectedFeatureIndex = -1;
@@ -391,7 +390,7 @@ QWidget* MetadataSidebar::buildLayersWidget(const QList<VectorLayerInfo>& layers
     layout->setContentsMargins(4, 4, 4, 4);
     layout->setSpacing(0);
 
-    m_layerCheckboxes.clear();
+    m_layerVisibilityButtons.clear();
 
     for (int i = 0; i < layers.size(); ++i) {
         const auto& layer = layers[i];
@@ -423,19 +422,32 @@ QWidget* MetadataSidebar::buildLayersWidget(const QList<VectorLayerInfo>& layers
             QString("background-color: %1; border: 1px solid %2;")
                 .arg(fillColor.name(QColor::HexArgb), color.name()));
 
-        auto* checkbox = new QCheckBox(layer.id);
-        checkbox->setChecked(true);
-        checkbox->setStyleSheet("font-weight: bold;");
-        connect(checkbox, &QCheckBox::toggled, this, &MetadataSidebar::onLayerCheckboxToggled);
-        m_layerCheckboxes[layer.id] = checkbox;
+        auto* nameLabel = new QLabel(layer.id);
+        nameLabel->setStyleSheet("font-weight: bold; padding-left: 2px;");
 
         auto* zoomLabel = new QLabel(QString("z%1\xe2\x80\x93%2").arg(layer.minzoom).arg(layer.maxzoom));
         setSubduedTextColor(zoomLabel);
 
+        auto* visibilityBtn = new QToolButton;
+        visibilityBtn->setAutoRaise(true);
+        visibilityBtn->setCheckable(true);
+        visibilityBtn->setChecked(true);
+        visibilityBtn->setFixedSize(20, 20);
+        visibilityBtn->setIcon(QIcon::fromTheme("view-visible"));
+        visibilityBtn->setToolTip("Hide layer");
+        visibilityBtn->setStyleSheet("QToolButton { border: none; background: transparent; }");
+        connect(visibilityBtn, &QToolButton::toggled, this, [visibilityBtn](bool visible) {
+            visibilityBtn->setIcon(QIcon::fromTheme(visible ? "view-visible" : "view-visible-off"));
+            visibilityBtn->setToolTip(visible ? "Hide layer" : "Show layer");
+        });
+        connect(visibilityBtn, &QToolButton::toggled, this, &MetadataSidebar::onLayerVisibilityToggled);
+        m_layerVisibilityButtons[layer.id] = visibilityBtn;
+
         headerLayout->addWidget(arrow);
         headerLayout->addWidget(swatch);
-        headerLayout->addWidget(checkbox, 1);
+        headerLayout->addWidget(nameLabel, 1);
         headerLayout->addWidget(zoomLabel);
+        headerLayout->addWidget(visibilityBtn);
 
         layout->addLayout(headerLayout);
 
@@ -497,10 +509,10 @@ QWidget* MetadataSidebar::buildLayersWidget(const QList<VectorLayerInfo>& layers
     return widget;
 }
 
-void MetadataSidebar::onLayerCheckboxToggled()
+void MetadataSidebar::onLayerVisibilityToggled()
 {
     QSet<QString> hidden;
-    for (auto it = m_layerCheckboxes.constBegin(); it != m_layerCheckboxes.constEnd(); ++it) {
+    for (auto it = m_layerVisibilityButtons.constBegin(); it != m_layerVisibilityButtons.constEnd(); ++it) {
         if (!it.value()->isChecked())
             hidden.insert(it.key());
     }
