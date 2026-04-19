@@ -466,11 +466,11 @@ QWidget* MetadataSidebar::buildLayersWidget(const QList<VectorLayerInfo>& layers
         }
 
         if (!layer.description.isEmpty()) {
-            auto* descLabel = new QLabel(layer.description);
-            descLabel->setWordWrap(true);
-            descLabel->setStyleSheet("font-style: italic;");
-            setSubduedTextColor(descLabel);
-            detailLayout->addWidget(descLabel);
+            auto* layerDescriptionLabel = new QLabel(layer.description);
+            layerDescriptionLabel->setWordWrap(true);
+            layerDescriptionLabel->setStyleSheet("font-style: italic;");
+            setSubduedTextColor(layerDescriptionLabel);
+            detailLayout->addWidget(layerDescriptionLabel);
         }
 
         if (!layer.fields.isEmpty()) {
@@ -481,16 +481,16 @@ QWidget* MetadataSidebar::buildLayersWidget(const QList<VectorLayerInfo>& layers
             form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
 
             for (auto it = layer.fields.constBegin(); it != layer.fields.constEnd(); ++it) {
-                auto* nameLabel = new QLabel(it.key());
+                auto* fieldNameLabel = new QLabel(it.key());
                 QFont mono("monospace");
                 mono.setStyleHint(QFont::Monospace);
-                nameLabel->setFont(mono);
+                fieldNameLabel->setFont(mono);
 
-                auto* typeLabel = new QLabel(it.value());
-                typeLabel->setWordWrap(true);
-                setSubduedTextColor(typeLabel);
+                auto* fieldDescriptionLabel = new QLabel(it.value());
+                fieldDescriptionLabel->setWordWrap(true);
+                setSubduedTextColor(fieldDescriptionLabel);
 
-                form->addRow(nameLabel, typeLabel);
+                form->addRow(fieldNameLabel, fieldDescriptionLabel);
             }
 
             detailLayout->addLayout(form);
