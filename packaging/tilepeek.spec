@@ -2,7 +2,7 @@ Name:           tilepeek
 Version:        0.8.0
 Release:        1%{?dist}
 Summary:        Preview and inspect MBTiles and PMTiles map tilesets
-License:        MIT
+License:        GPL-3.0-only
 URL:            https://github.com/ajashton/tilepeek
 Source0:        %{name}-%{version}.tar.gz
 
