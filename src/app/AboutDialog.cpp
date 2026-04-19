@@ -57,26 +57,10 @@ QWidget* buildAboutTab(QWidget* parent)
     versionLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(versionLabel);
 
-    layout->addWidget(makeDivider(tab));
-
-    auto* copyrightLabel = new QLabel("\u00A9 2026 AJ Ashton");
+    auto* copyrightLabel = new QLabel("\u00A9 2026 AJ Ashton – <a href=\"https://ajashton.ca/\">ajashton.ca</a>");
     copyrightLabel->setAlignment(Qt::AlignCenter);
+    copyrightLabel->setOpenExternalLinks(true);
     layout->addWidget(copyrightLabel);
-
-    auto* attribLabel = new QLabel(
-        "PMTiles parsing code \u00A9 2021 and later<br>"
-        "Protomaps LLC and contributors<br>"
-        "<br>"
-        "Vector layers color palette based on \u201CCET-C6\u201D<br>"
-        "by Peter Kovesi, CC-BY 4.0 \u2013 <a href=\"https://colorcet.com\">colorcet.com</a>");
-    attribLabel->setWordWrap(true);
-    attribLabel->setOpenExternalLinks(true);
-    attribLabel->setAlignment(Qt::AlignCenter);
-    auto attribFont = attribLabel->font();
-    attribLabel->setFont(attribFont);
-    layout->addWidget(attribLabel);
-
-    layout->addWidget(makeDivider(tab));
 
     auto* linkLabel = new QLabel(
         "Get the source code, report bugs, or request features at<br>"
@@ -85,6 +69,24 @@ QWidget* buildAboutTab(QWidget* parent)
     linkLabel->setWordWrap(true);
     linkLabel->setOpenExternalLinks(true);
     layout->addWidget(linkLabel);
+
+    layout->addWidget(makeDivider(tab));
+
+    auto* attribLabel = new QLabel(
+        "PMTiles parsing code \u00A9 2021 and later<br>"
+        "Protomaps LLC and contributors – <a href=\"https://protomaps.com/\">protomaps.com</a><br>"
+        "<br>"
+        "Vector layers color palette based on \u201CCET-C6\u201D<br>"
+        "by Peter Kovesi, <a href=\"https://creativecommons.org/licenses/by/4.0/\">CC-BY 4.0</a> \u2013 <a href=\"https://colorcet.com\">colorcet.com</a><br>"
+        "<br>"
+        "Breeze icons \u00A9 2014 <a href=\"mailto:uri_herrera@nitrux.in\">Uri Herrera</a> and others,<br>"
+        "<a href=\"https://www.gnu.org/licenses/lgpl-3.0.html\">GNU LGPLv3</a> – <a href=\"https://invent.kde.org/frameworks/breeze-icons\">invent.kde.org/frameworks/breeze-icons</a>");
+    attribLabel->setWordWrap(true);
+    attribLabel->setOpenExternalLinks(true);
+    attribLabel->setAlignment(Qt::AlignCenter);
+    auto attribFont = attribLabel->font();
+    attribLabel->setFont(attribFont);
+    layout->addWidget(attribLabel);
 
     layout->addStretch();
     return tab;
