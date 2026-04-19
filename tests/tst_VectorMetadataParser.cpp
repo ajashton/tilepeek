@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 AJ Ashton <aj@ajashton.ca>
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "mbtiles/VectorMetadataParser.h"
 
 #include <QTest>

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 AJ Ashton <aj@ajashton.ca>
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "stats/TileStatsWorker.h"
 #include "mbtiles/MBTilesReader.h"
 #include "pmtiles/PMTilesReader.h"

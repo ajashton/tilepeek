@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 AJ Ashton <aj@ajashton.ca>
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "map/MapViewport.h"
 #include "map/WebMercator.h"
 #include "util/FormatUtils.h"
