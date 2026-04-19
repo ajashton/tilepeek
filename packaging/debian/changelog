@@ -1,0 +1,5 @@
+tilepeek (0.8.0-1) unstable; urgency=medium
+
+  * Initial Debian packaging.
+
+ -- AJ Ashton <aj@ajashton.ca>  Sun, 19 Apr 2026 00:00:00 +0000

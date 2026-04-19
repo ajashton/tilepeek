@@ -1,0 +1,25 @@
+Source: tilepeek
+Section: graphics
+Priority: optional
+Maintainer: AJ Ashton <aj@ajashton.ca>
+Build-Depends: debhelper-compat (= 13),
+               cmake (>= 3.25),
+               g++ (>= 13),
+               qt6-base-dev,
+               qt6-svg-dev,
+               libqt6sql6-sqlite,
+               zlib1g-dev,
+               librsvg2-bin,
+               desktop-file-utils,
+               appstream
+Standards-Version: 4.7.0
+Homepage: https://github.com/ajashton/tilepeek
+Rules-Requires-Root: no
+
+Package: tilepeek
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libqt6sql6-sqlite
+Description: Preview and inspect MBTiles and PMTiles map tilesets
+ TilePeek is a lightweight desktop application for quickly previewing and
+ inspecting map tilesets stored in MBTiles and PMTiles container formats.
+ It supports raster and vector tiles with metadata and statistics display.

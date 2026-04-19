@@ -1,0 +1,11 @@
+#!/usr/bin/make -f
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+export QT_QPA_PLATFORM = offscreen
+
+%:
+	dh $@ --buildsystem=cmake
+
+override_dh_auto_install:
+	dh_auto_install
+	desktop-file-validate debian/tilepeek/usr/share/applications/com.tilepeek.TilePeek.desktop
+	appstreamcli validate --no-net debian/tilepeek/usr/share/metainfo/com.tilepeek.TilePeek.metainfo.xml || true

@@ -8,6 +8,7 @@ Each script is self-contained and reads the version from the top-level
 | -------- | ------------ | ----------------- |
 | macOS    | `.dmg`       | `build-macos.sh`  |
 | Linux    | `.rpm`       | `build-rpm.sh`    |
+| Linux    | `.deb`       | `build-deb.sh`    |
 | Windows  | _TBD_        | _not yet_         |
 
 ---
@@ -236,10 +237,55 @@ source tarball. If it's dirty it falls back to `tar` on the working tree and
 warns — fine for iterating locally, but always commit before cutting a real
 release so the SRPM is reproducible.
 
-### DEB packaging
+---
 
-Not yet implemented. Contributions welcome; `tilepeek.spec` is a reasonable
-starting reference for the build & install steps.
+## Linux (`.deb`)
+
+`build-deb.sh` builds a Debian binary package targeting Ubuntu 26.04 LTS. It
+pairs with the source files under `packaging/debian/`. The build runs inside
+a Podman (or Docker) container, so it works cleanly from a Fedora host.
+
+### Prerequisites
+
+```sh
+sudo dnf install podman
+```
+
+Docker is also accepted if `podman` isn't installed.
+
+### Build
+
+```sh
+./packaging/build-deb.sh
+```
+
+Outputs `build/deb/tilepeek_<version>-1_amd64.deb` plus matching `.buildinfo`
+and `.changes` files. The script also runs `lintian` on the result as a soft
+check; warnings are printed but do not fail the build.
+
+If the working tree is clean the script uses `git archive` to produce the
+upstream tarball. If it's dirty it falls back to `tar` on the working tree
+and warns — fine for iterating locally, but always commit before cutting a
+real release so the package is reproducible.
+
+### Distro coverage
+
+The current `.deb` is built against Ubuntu 26.04 LTS's toolchain (Qt 6.10) and
+installs cleanly on Ubuntu 26.04 LTS and derivatives built on it.
+
+Ubuntu 24.04 LTS is **not** supported: its stock Qt 6.4 is missing APIs the
+code uses (`Qt::ColorScheme`, `QEvent::DevicePixelRatioChange`, etc., which
+arrived in Qt 6.5 / 6.6). Other distributions (Debian 13, Ubuntu 25.10) ship
+a compatible Qt but need their own builds because of ABI differences —
+separate per-distro builds are not yet implemented.
+
+### Cutting a new release
+
+1. Bump `project(tilepeek VERSION X.Y.Z ...)` in the top-level `CMakeLists.txt`.
+2. Add a new stanza to `packaging/debian/changelog`. The easiest way is
+   `dch -v X.Y.Z-1` (from `devscripts` on Debian/Ubuntu) — on Fedora, edit by
+   hand following the existing format.
+3. Commit, tag, then run `./packaging/build-deb.sh`.
 
 ---
 
