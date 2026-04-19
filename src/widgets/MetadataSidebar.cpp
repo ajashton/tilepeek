@@ -224,8 +224,7 @@ MetadataSidebar::MetadataSidebar(QWidget* parent)
     m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_outerLayout->addWidget(m_scrollArea);
 
-    setMinimumWidth(260);
-    setMaximumWidth(400);
+    setMinimumWidth(300);
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
 }
 
