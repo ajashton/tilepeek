@@ -75,22 +75,6 @@ Two ways to edit:
   item in the same menu. To produce a literal `&` character in the UI,
   write `&&`.
 
-### Non-translatable strings
-
-Some strings appear in the UI but should not be translated:
-
-- The **license text** shown on About → License is the raw GPL-3.0 text,
-  loaded from the `:/text/LICENSE` resource. It stays in English for legal
-  validity.
-- **Metadata field keys** like `bounds`, `center`, `minzoom`, `maxzoom`,
-  `format` — these are spec-defined data keys from the MBTiles/PMTiles and
-  TileJSON specs. They appear as-is in the metadata sidebar.
-- **URLs, email addresses, version numbers, Git SHAs**, file paths, and
-  MVT layer IDs.
-
-These strings are never wrapped in `tr()`, so they will not appear in the
-`.ts` files.
-
 ### The "TilePeek" brand name
 
 Every `"TilePeek"` occurrence in the code is wrapped in `tr()` specifically
@@ -99,11 +83,6 @@ transliterate the brand into their script if they choose to. For
 Latin-script translations (French, Spanish, German, etc.), translate
 `"TilePeek"` as `"TilePeek"` unchanged — but do remove
 `type="unfinished"` so Qt Linguist stops flagging it.
-
-The platform identifiers (`QApplication::setApplicationName`, macOS
-`CFBundleName`, the `.desktop` `Name=` field) are not wrapped in `tr()` and
-must remain `"TilePeek"` in all languages — those are used as
-storage/config identifiers, not user-facing labels.
 
 ## Developer guidelines — adding new translatable strings
 
@@ -168,31 +147,3 @@ locale:
 - **During development**: temporarily call
   `QLocale::setDefault(QLocale(QLocale::French, QLocale::France))` in
   `main()` before the translators are installed.
-
-What to check after switching locale:
-
-- Menu bar titles and menu items.
-- Toolbar button tooltips.
-- File → Open dialog title and filter dropdown.
-- Right-click context menu on the map (for vector tilesets).
-- About dialog: window title, three tab titles, attribution text.
-  **License tab must remain in English** — that's intentional.
-- Metadata sidebar: three tab labels, Statistics subheading, zoom-bar
-  tooltips, Inspect panel geometry labels.
-- Metadata field key labels (`bounds`, `center`, `minzoom`, `maxzoom`,
-  `format`, `attribution`, …) **remain in English** — that's intentional.
-- Error message boxes (open an invalid file to trigger one).
-
-## Required tools
-
-Building translations requires Qt's LinguistTools development package.
-
-- **Fedora**: `sudo dnf install qt6-qttools-devel`
-- **Debian/Ubuntu**: `sudo apt install qt6-tools-dev-tools qt6-l10n-tools`
-- **macOS (Homebrew)**: included in the main `qt` formula.
-- **Windows**: shipped with the standard Qt installer.
-
-The standard Qt translations (`qtbase_fr.qm`, etc. — used for Qt's own
-dialog strings) come with the main Qt runtime, not the development tools.
-If they're missing the fallback is simply that standard dialogs stay in
-English; TilePeek's own strings still translate.
