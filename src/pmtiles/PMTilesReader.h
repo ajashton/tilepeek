@@ -5,6 +5,7 @@
 
 #include "map/TileSource.h"
 
+#include <QCoreApplication>
 #include <QFile>
 #include <QString>
 #include <QStringList>
@@ -17,6 +18,7 @@ struct PMTilesValidationResult {
 };
 
 class PMTilesReader : public TileSource {
+    Q_DECLARE_TR_FUNCTIONS(PMTilesReader)
 public:
     explicit PMTilesReader(const QString& filePath);
     ~PMTilesReader() override;

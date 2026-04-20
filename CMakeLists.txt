@@ -13,7 +13,7 @@ set(CMAKE_AUTOMOC ON)
 
 include(GNUInstallDirs)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets Sql Svg Test Concurrent)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Sql Svg Test Concurrent LinguistTools)
 
 find_package(Git QUIET)
 set(TILEPEEK_GIT_SHA "unknown")

@@ -37,7 +37,7 @@ PMTilesMetadataParser::Result PMTilesMetadataParser::parse(
 
     if (format == "unknown")
         result.messages.append({ValidationMessage::Level::Warning,
-                                "Unknown tile type in header", "format"});
+                                tr("Unknown tile type in header"), "format"});
 
     // Zoom range from header
     meta.addField("minzoom", QString::number(header.min_zoom), FieldCategory::Recommended);
@@ -72,7 +72,7 @@ PMTilesMetadataParser::Result PMTilesMetadataParser::parse(
 
         if (parseError.error != QJsonParseError::NoError) {
             result.messages.append({ValidationMessage::Level::Error,
-                                    "Failed to parse JSON metadata: " + parseError.errorString()});
+                                    tr("Failed to parse JSON metadata: %1").arg(parseError.errorString())});
         } else if (doc.isObject()) {
             auto obj = doc.object();
 
@@ -95,7 +95,7 @@ PMTilesMetadataParser::Result PMTilesMetadataParser::parse(
         }
     } else if (format == "pbf") {
         result.messages.append({ValidationMessage::Level::Warning,
-                                "Missing JSON metadata for vector tile format"});
+                                tr("Missing JSON metadata for vector tile format")});
     }
 
     return result;

@@ -24,8 +24,8 @@ TilePeek is a desktop application for previewing & inspecting map tilesets from 
 
 Install build dependencies:
 
-- Fedora: `sudo dnf install cmake qt6-qtbase-devel qt6-qtsvg-devel`
-- Ubuntu: `sudo apt install cmake qt6-base-dev qt6-svg-dev`
+- Fedora: `sudo dnf install cmake qt6-qtbase-devel qt6-qtsvg-devel qt6-qttools-devel`
+- Ubuntu: `sudo apt install cmake qt6-base-dev qt6-svg-dev qt6-tools-dev-tools qt6-l10n-tools`
 - MacOS (with Homebrew): `brew install cmake qt@6 librsvg`
 - Windows: 🤷‍♂️ let me know
 

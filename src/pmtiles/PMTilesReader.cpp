@@ -58,19 +58,19 @@ PMTilesValidationResult PMTilesReader::validate() const
     PMTilesValidationResult result;
 
     if (m_header.internal_compression == pmtiles::COMPRESSION_BROTLI) {
-        result.errors.append("Brotli compression is not supported");
+        result.errors.append(tr("Brotli compression is not supported"));
         return result;
     }
     if (m_header.internal_compression == pmtiles::COMPRESSION_ZSTD) {
-        result.errors.append("Zstandard compression is not supported");
+        result.errors.append(tr("Zstandard compression is not supported"));
         return result;
     }
     if (m_header.tile_compression == pmtiles::COMPRESSION_BROTLI) {
-        result.errors.append("Brotli tile compression is not supported");
+        result.errors.append(tr("Brotli tile compression is not supported"));
         return result;
     }
     if (m_header.tile_compression == pmtiles::COMPRESSION_ZSTD) {
-        result.errors.append("Zstandard tile compression is not supported");
+        result.errors.append(tr("Zstandard tile compression is not supported"));
         return result;
     }
 

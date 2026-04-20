@@ -5,6 +5,7 @@
 
 #include "map/TileSource.h"
 
+#include <QCoreApplication>
 #include <QList>
 #include <QSqlDatabase>
 #include <QString>
@@ -28,6 +29,7 @@ struct TileGridBounds {
 };
 
 class MBTilesReader : public TileSource {
+    Q_DECLARE_TR_FUNCTIONS(MBTilesReader)
 public:
     explicit MBTilesReader(const QString& filePath);
     ~MBTilesReader();

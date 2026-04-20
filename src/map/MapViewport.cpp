@@ -682,11 +682,13 @@ void MapViewport::contextMenuEvent(QContextMenuEvent* event)
 
     QMenu menu(this);
     if (m_tileFocusActive) {
-        menu.addAction("Exit tile focus", this, &MapViewport::exitTileFocus);
+        menu.addAction(tr("Exit tile focus"), this, &MapViewport::exitTileFocus);
     } else {
         auto key = tileAtScreenPos(event->pos());
+        //: Context menu action. %1/%2/%3 are tile z/x/y coordinates; keep the
+        //: placeholders, though the surrounding word order may be changed.
         auto* action = menu.addAction(
-            QString("Focus tile %1/%2/%3").arg(key.zoom).arg(key.x).arg(key.y));
+            tr("Focus tile %1/%2/%3").arg(key.zoom).arg(key.x).arg(key.y));
         connect(action, &QAction::triggered, this, [this, pos = event->pos()] {
             focusTileAt(pos);
         });

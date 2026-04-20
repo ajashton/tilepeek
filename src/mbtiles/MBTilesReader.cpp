@@ -42,7 +42,7 @@ MBTilesValidationResult MBTilesReader::validateSchema() const
 
     // Validate metadata table
     if (!tableOrViewExists("metadata")) {
-        result.errors.append("Missing required table or view: metadata");
+        result.errors.append(tr("Missing required table or view: metadata"));
     } else {
         QMap<QString, QString> metadataCols;
         metadataCols["name"] = "text";
@@ -53,7 +53,7 @@ MBTilesValidationResult MBTilesReader::validateSchema() const
 
     // Validate tiles table
     if (!tableOrViewExists("tiles")) {
-        result.errors.append("Missing required table or view: tiles");
+        result.errors.append(tr("Missing required table or view: tiles"));
     } else {
         QMap<QString, QString> tilesCols;
         tilesCols["zoom_level"] = "integer";
@@ -147,7 +147,7 @@ bool MBTilesReader::validateTableColumns(const QString& table,
 {
     QSqlQuery query(m_db);
     if (!query.exec(QString("PRAGMA table_info(%1)").arg(table))) {
-        errors.append(QString("Failed to read schema for table: %1").arg(table));
+        errors.append(tr("Failed to read schema for table: %1").arg(table));
         return false;
     }
 
@@ -162,12 +162,12 @@ bool MBTilesReader::validateTableColumns(const QString& table,
     bool valid = true;
     for (auto it = expectedColumns.constBegin(); it != expectedColumns.constEnd(); ++it) {
         if (!foundColumns.contains(it.key())) {
-            errors.append(QString("Table '%1' is missing required column: %2")
+            errors.append(tr("Table '%1' is missing required column: %2")
                               .arg(table, it.key()));
             valid = false;
         } else if (foundColumns[it.key()] != it.value()) {
             errors.append(
-                QString("Table '%1' column '%2' has type '%3', expected '%4'")
+                tr("Table '%1' column '%2' has type '%3', expected '%4'")
                     .arg(table, it.key(), foundColumns[it.key()], it.value()));
             valid = false;
         }

@@ -150,3 +150,13 @@ else()
         add_custom_target(icons ALL DEPENDS ${ICON_FILES})
     endif()
 endif()
+
+# Compile .ts -> .qm, embed into the executable as :/i18n/tilepeek_<locale>.qm.
+# Use `cmake --build build --target update_translations` to refresh .ts files
+# from source after adding or changing tr() calls.
+qt_add_translations(tilepeek
+    TS_FILES ${CMAKE_SOURCE_DIR}/translations/tilepeek_fr.ts
+    SOURCE_TARGETS tilepeek_lib
+    RESOURCE_PREFIX "/i18n"
+    LUPDATE_OPTIONS -no-obsolete -locations relative
+)
