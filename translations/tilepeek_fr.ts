@@ -6,7 +6,7 @@
     <message>
         <location filename="../src/app/AboutDialog.cpp" line="+33"/>
         <source>Built with Qt %1 (running %2)</source>
-        <translation>Compilé avec Qt %1 (exécution %2)</translation>
+        <translation>Compilé avec Qt %1 (version d’exécution %2)</translation>
     </message>
     <message>
         <location line="+3"/>
@@ -34,7 +34,7 @@
         <location line="+8"/>
         <source>Get the source code, report bugs, or request features at&lt;br&gt;&lt;a href=&quot;https://github.com/ajashton/tilepeek/&quot;&gt;github.com/ajashton/tilepeek&lt;/a&gt;</source>
         <extracomment>Project link line on the About tab. Preserve the &lt;br&gt; and the &lt;a href=&quot;...&quot;&gt; markup and URL.</extracomment>
-        <translation>Code source, rapports de bogues et demandes de fonctionnalités sur&lt;br&gt;&lt;a href=&quot;https://github.com/ajashton/tilepeek/&quot;&gt;github.com/ajashton/tilepeek&lt;/a&gt;</translation>
+        <translation>Code source, signalements de bogues et demandes de fonctionnalités sur&lt;br&gt;&lt;a href=&quot;https://github.com/ajashton/tilepeek/&quot;&gt;github.com/ajashton/tilepeek&lt;/a&gt;</translation>
     </message>
     <message>
         <location line="+14"/>
@@ -141,7 +141,7 @@ un fichier MBTiles ou PMTiles</translation>
         <location line="+10"/>
         <location line="+11"/>
         <source>Does not match tiles table (%1)</source>
-        <translation>Ne correspond pas à la table tiles (%1)</translation>
+        <translation>Ne correspond pas à la table « tiles » (%1)</translation>
     </message>
 </context>
 <context>
@@ -149,12 +149,12 @@ un fichier MBTiles ou PMTiles</translation>
     <message>
         <location filename="../src/mbtiles/MBTilesReader.cpp" line="+45"/>
         <source>Missing required table or view: metadata</source>
-        <translation>Table ou vue requise manquante : metadata</translation>
+        <translation>Table ou vue requise manquante : « metadata »</translation>
     </message>
     <message>
         <location line="+11"/>
         <source>Missing required table or view: tiles</source>
-        <translation>Table ou vue requise manquante : tiles</translation>
+        <translation>Table ou vue requise manquante : « tiles »</translation>
     </message>
     <message>
         <location line="+94"/>
@@ -169,7 +169,7 @@ un fichier MBTiles ou PMTiles</translation>
     <message>
         <location line="+5"/>
         <source>Table &apos;%1&apos; column &apos;%2&apos; has type &apos;%3&apos;, expected &apos;%4&apos;</source>
-        <translation>La colonne « %2 » de la table « %1 » est de type « %3 », attendu « %4 »</translation>
+        <translation>La colonne « %2 » de la table « %1 » est de type « %3 » au lieu du type attendu « %4 »</translation>
     </message>
 </context>
 <context>
@@ -213,12 +213,12 @@ un fichier MBTiles ou PMTiles</translation>
     <message>
         <location line="+2"/>
         <source>Show Tile &amp;Sizes</source>
-        <translation>Afficher la &amp;taille des tuiles</translation>
+        <translation>Afficher les &amp;tailles des tuiles</translation>
     </message>
     <message>
         <location line="+5"/>
         <source>Show B&amp;ounds Box</source>
-        <translation>Afficher le cadre en&amp;globant</translation>
+        <translation>Afficher l’emprise en&amp;globant</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -228,7 +228,7 @@ un fichier MBTiles ou PMTiles</translation>
     <message>
         <location line="+5"/>
         <source>&amp;Zoom to Tileset Bounds</source>
-        <translation>&amp;Zoom sur le cadre englobant</translation>
+        <translation>&amp;Zoomer sur l’emprise du jeu de tuiles</translation>
     </message>
     <message>
         <location line="+6"/>
@@ -264,7 +264,7 @@ un fichier MBTiles ou PMTiles</translation>
     <message>
         <location line="+16"/>
         <source>Zoom to Tileset Bounds</source>
-        <translation>Zoom sur le cadre englobant</translation>
+        <translation>Zoom sur l’emprise</translation>
     </message>
     <message>
         <location line="+13"/>
@@ -341,7 +341,7 @@ un fichier MBTiles ou PMTiles</translation>
     <message>
         <location line="-108"/>
         <source>Missing required &apos;json&apos; metadata key for pbf format</source>
-        <translation>Clé de métadonnées « json » requise manquante pour le format pbf</translation>
+        <translation>Clé de métadonnées « json » requise manquante pour le format PBF</translation>
     </message>
     <message>
         <location line="+83"/>
@@ -352,7 +352,7 @@ un fichier MBTiles ou PMTiles</translation>
     <message>
         <location line="-68"/>
         <source>No vector_layers found in PMTiles metadata</source>
-        <translation>Aucun vector_layers trouvé dans les métadonnées PMTiles</translation>
+        <translation>Aucun clé « vector_layers » trouvée dans les métadonnées PMTiles</translation>
     </message>
 </context>
 <context>
@@ -388,7 +388,7 @@ p50 : %3 | p90 : %4 | p99 : %5 | max : %6</translation>
     <message>
         <location line="+9"/>
         <source>Layers</source>
-        <translation>Calques</translation>
+        <translation>Couches</translation>
     </message>
     <message>
         <location line="+68"/>
@@ -399,12 +399,12 @@ p50 : %3 | p90 : %4 | p99 : %5 | max : %6</translation>
         <location line="+61"/>
         <location line="+4"/>
         <source>Hide layer</source>
-        <translation>Masquer le calque</translation>
+        <translation>Masquer la couche</translation>
     </message>
     <message>
         <location line="+0"/>
         <source>Show layer</source>
-        <translation>Afficher le calque</translation>
+        <translation>Afficher la couche</translation>
     </message>
     <message>
         <location line="+20"/>
@@ -469,7 +469,7 @@ p50 : %3 | p90 : %4 | p99 : %5 | max : %6</translation>
     <message>
         <location line="+8"/>
         <source>(no id)</source>
-        <translation>(sans id)</translation>
+        <translation>(sans ID)</translation>
     </message>
     <message>
         <location line="+20"/>
@@ -556,7 +556,7 @@ p50 : %3 | p90 : %4 | p99 : %5 | max : %6</translation>
     <message>
         <location line="+11"/>
         <source>Missing required &apos;vector_layers&apos;</source>
-        <translation>« vector_layers » requis manquant</translation>
+        <translation>Clé requise « vector_layers » manquante</translation>
     </message>
     <message>
         <location line="+7"/>
