@@ -10,6 +10,7 @@ BuildRequires:  cmake >= 3.25
 BuildRequires:  gcc-c++
 BuildRequires:  qt6-qtbase-devel
 BuildRequires:  qt6-qtsvg-devel
+BuildRequires:  qt6-qttools-devel
 BuildRequires:  zlib-devel
 BuildRequires:  librsvg2-tools
 BuildRequires:  desktop-file-utils
