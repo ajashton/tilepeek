@@ -1,5 +1,5 @@
 Name:           tilepeek
-Version:        0.8.0
+Version:        0.9.0
 Release:        1%{?dist}
 Summary:        Preview and inspect MBTiles and PMTiles map tilesets
 License:        GPL-3.0-only
