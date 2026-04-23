@@ -42,6 +42,7 @@ public:
 signals:
     void layerVisibilityChanged(const QSet<QString>& hiddenLayers);
     void featureIsolated(int index);
+    void inspectClosed();
 
 private slots:
     void onLayerVisibilityToggled();
