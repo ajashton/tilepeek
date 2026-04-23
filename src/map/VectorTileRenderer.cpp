@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "map/VectorTileRenderer.h"
+
+#include "map/LabelRenderer.h"
 #include "mvt/MvtGeometry.h"
 
 #include <QImage>
@@ -9,20 +11,13 @@
 #include <algorithm>
 #include <cmath>
 
-QImage VectorTileRenderer::render(const mvt::Tile& tile,
-                                   const std::unordered_map<std::string, QColor>& layerColors,
-                                   const QSet<QString>& hiddenLayers,
-                                   int tileSize,
-                                   qreal dpr)
+namespace {
+
+void drawFeatures(QPainter& painter, const mvt::Tile& tile,
+                  const std::unordered_map<std::string, QColor>& layerColors,
+                  const QSet<QString>& hiddenLayers,
+                  int tileSize)
 {
-    int phys = static_cast<int>(std::lround(tileSize * dpr));
-    QImage image(phys, phys, QImage::Format_ARGB32_Premultiplied);
-    image.setDevicePixelRatio(dpr);
-    image.fill(QColor("#000000"));
-
-    QPainter painter(&image);
-    painter.setRenderHint(QPainter::Antialiasing);
-
     for (const auto& layer : tile.layers) {
         QString layerName = QString::fromStdString(layer.name);
         if (hiddenLayers.contains(layerName))
@@ -72,70 +67,41 @@ QImage VectorTileRenderer::render(const mvt::Tile& tile,
             }
         }
     }
-
-    return image;
 }
 
-static void drawFeatures(QPainter& painter, const mvt::Tile& tile,
-                          const std::unordered_map<std::string, QColor>& layerColors,
-                          const QSet<QString>& hiddenLayers,
-                          int tileSize)
+} // namespace
+
+QImage VectorTileRenderer::render(const mvt::Tile& tile,
+                                   const std::unordered_map<std::string, QColor>& layerColors,
+                                   const QSet<QString>& hiddenLayers,
+                                   const std::unordered_map<std::string, std::string>& labeledFields,
+                                   int tileSize,
+                                   qreal dpr)
 {
-    for (const auto& layer : tile.layers) {
-        QString layerName = QString::fromStdString(layer.name);
-        if (hiddenLayers.contains(layerName))
-            continue;
+    int phys = static_cast<int>(std::lround(tileSize * dpr));
+    QImage image(phys, phys, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(QColor("#000000"));
 
-        QColor baseColor(100, 100, 100);
-        auto it = layerColors.find(layer.name);
-        if (it != layerColors.end())
-            baseColor = it->second;
+    QPainter painter(&image);
+    painter.setRenderHint(QPainter::Antialiasing);
 
-        double extent = layer.extent;
+    drawFeatures(painter, tile, layerColors, hiddenLayers, tileSize);
 
-        for (const auto& feature : layer.features) {
-            switch (feature.type) {
-            case mvt::GeomType::Polygon: {
-                auto path = mvt::decodeGeometry(feature, extent, tileSize);
-                QColor fillColor = baseColor;
-                fillColor.setAlpha(25);
-                QColor strokeColor = baseColor;
-                strokeColor.setAlpha(127);
-                painter.setBrush(fillColor);
-                painter.setPen(QPen(strokeColor, 1.0));
-                painter.drawPath(path);
-                break;
-            }
-            case mvt::GeomType::LineString: {
-                auto path = mvt::decodeGeometry(feature, extent, tileSize);
-                QColor strokeColor = baseColor;
-                strokeColor.setAlpha(127);
-                painter.setBrush(Qt::NoBrush);
-                painter.setPen(QPen(strokeColor, 1.0));
-                painter.drawPath(path);
-                break;
-            }
-            case mvt::GeomType::Point: {
-                auto points = mvt::decodePoints(feature, extent, tileSize);
-                QColor dotColor = baseColor;
-                dotColor.setAlpha(127);
-                painter.setPen(Qt::NoPen);
-                painter.setBrush(dotColor);
-                for (const auto& pt : points)
-                    painter.drawEllipse(pt, 3.0, 3.0);
-                break;
-            }
-            default:
-                break;
-            }
-        }
+    if (!labeledFields.empty()) {
+        auto candidates = LabelRenderer::collectCandidates(
+            tile, layerColors, hiddenLayers, labeledFields, tileSize, /*clipToTile=*/true);
+        LabelRenderer::drawLabels(painter, candidates, tileSize);
     }
+
+    return image;
 }
 
 UnclippedTileResult VectorTileRenderer::renderUnclipped(
     const mvt::Tile& tile,
     const std::unordered_map<std::string, QColor>& layerColors,
     const QSet<QString>& hiddenLayers,
+    const std::unordered_map<std::string, std::string>& labeledFields,
     int tileSize,
     qreal dpr)
 {
@@ -175,6 +141,12 @@ UnclippedTileResult VectorTileRenderer::renderUnclipped(
 
     // Draw all geometry using the base tileSize (geometry at [0,extent] maps to [0,tileSize])
     drawFeatures(painter, tile, layerColors, hiddenLayers, tileSize);
+
+    if (!labeledFields.empty()) {
+        auto candidates = LabelRenderer::collectCandidates(
+            tile, layerColors, hiddenLayers, labeledFields, tileSize, /*clipToTile=*/false);
+        LabelRenderer::drawLabels(painter, candidates, tileSize);
+    }
 
     return {std::move(image), bufferRatio};
 }

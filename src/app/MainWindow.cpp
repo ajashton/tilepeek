@@ -326,6 +326,8 @@ void MainWindow::loadMBTiles(const QString& path)
 
         connect(m_sidebar, &MetadataSidebar::layerVisibilityChanged,
                 this, &MainWindow::onLayerVisibilityChanged);
+        connect(m_sidebar, &MetadataSidebar::labeledFieldsChanged,
+                this, &MainWindow::onLabeledFieldsChanged);
         connect(m_mapViewport, &MapViewport::inspectRequested,
                 this, &MainWindow::onInspectRequested);
         connect(m_mapViewport, &MapViewport::inspectCleared,
@@ -480,6 +482,8 @@ void MainWindow::loadPMTiles(const QString& path)
 
         connect(m_sidebar, &MetadataSidebar::layerVisibilityChanged,
                 this, &MainWindow::onLayerVisibilityChanged);
+        connect(m_sidebar, &MetadataSidebar::labeledFieldsChanged,
+                this, &MainWindow::onLabeledFieldsChanged);
         connect(m_mapViewport, &MapViewport::inspectRequested,
                 this, &MainWindow::onInspectRequested);
         connect(m_mapViewport, &MapViewport::inspectCleared,
@@ -558,6 +562,14 @@ void MainWindow::onLayerVisibilityChanged(const QSet<QString>& hiddenLayers)
         // Remove highlights for newly hidden layers
         if (!newlyHidden.isEmpty())
             m_mapViewport->removeInspectHighlightsForLayers(newlyHidden);
+    }
+}
+
+void MainWindow::onLabeledFieldsChanged(const QHash<QString, QString>& fieldsByLayer)
+{
+    if (auto* vtp = dynamic_cast<VectorTileProvider*>(m_tileProvider.get())) {
+        vtp->setLabeledFields(fieldsByLayer);
+        m_mapViewport->invalidateTiles();
     }
 }
 
@@ -692,6 +704,8 @@ void MainWindow::clearCurrentFile()
     stopStatsThread();
     disconnect(m_sidebar, &MetadataSidebar::layerVisibilityChanged,
                this, &MainWindow::onLayerVisibilityChanged);
+    disconnect(m_sidebar, &MetadataSidebar::labeledFieldsChanged,
+               this, &MainWindow::onLabeledFieldsChanged);
     disconnect(m_mapViewport, &MapViewport::inspectRequested,
                this, &MainWindow::onInspectRequested);
     disconnect(m_mapViewport, &MapViewport::inspectCleared,

@@ -22,6 +22,7 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QSignalBlocker>
 #include <QTextLayout>
 #include <QTabWidget>
 #include <QToolButton>
@@ -251,6 +252,7 @@ void MetadataSidebar::clear()
         // If scrollArea was removed from layout for tab mode, re-add it
     }
     m_layerVisibilityButtons.clear();
+    m_labelFieldButtons.clear();
     m_rawJson = QJsonObject();
     m_inspectTabIndex = -1;
     m_selectedFeatureIndex = -1;
@@ -397,6 +399,7 @@ QWidget* MetadataSidebar::buildLayersWidget(const QList<VectorLayerInfo>& layers
     layout->setSpacing(0);
 
     m_layerVisibilityButtons.clear();
+    m_labelFieldButtons.clear();
 
     for (int i = 0; i < layers.size(); ++i) {
         const auto& layer = layers[i];
@@ -486,6 +489,7 @@ QWidget* MetadataSidebar::buildLayersWidget(const QList<VectorLayerInfo>& layers
             form->setVerticalSpacing(2);
             form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
 
+            const QString layerId = layer.id;
             for (auto it = layer.fields.constBegin(); it != layer.fields.constEnd(); ++it) {
                 auto* fieldNameLabel = new QLabel(it.key());
                 QFont mono("monospace");
@@ -496,7 +500,31 @@ QWidget* MetadataSidebar::buildLayersWidget(const QList<VectorLayerInfo>& layers
                 fieldDescriptionLabel->setWordWrap(true);
                 setSubduedTextColor(fieldDescriptionLabel);
 
-                form->addRow(fieldNameLabel, fieldDescriptionLabel);
+                auto* labelBtn = new QToolButton;
+                labelBtn->setAutoRaise(true);
+                labelBtn->setCheckable(true);
+                labelBtn->setChecked(false);
+                labelBtn->setFixedSize(20, 20);
+                labelBtn->setIcon(QIcon::fromTheme("insert-text-frame"));
+                labelBtn->setToolTip(tr("Show map labels"));
+                labelBtn->setStyleSheet("QToolButton { border: none; background: transparent; }");
+                const QString fieldName = it.key();
+                connect(labelBtn, &QToolButton::toggled, this,
+                        [this, labelBtn, layerId, fieldName](bool on) {
+                            labelBtn->setToolTip(on ? tr("Hide map labels")
+                                                    : tr("Show map labels"));
+                            onLabelFieldToggled(layerId, fieldName, on);
+                        });
+                m_labelFieldButtons[layerId][fieldName] = labelBtn;
+
+                auto* rowWidget = new QWidget;
+                auto* rowLayout = new QHBoxLayout(rowWidget);
+                rowLayout->setContentsMargins(0, 0, 0, 0);
+                rowLayout->setSpacing(4);
+                rowLayout->addWidget(fieldDescriptionLabel, 1);
+                rowLayout->addWidget(labelBtn, 0, Qt::AlignTop);
+
+                form->addRow(fieldNameLabel, rowWidget);
             }
 
             detailLayout->addLayout(form);
@@ -524,6 +552,41 @@ void MetadataSidebar::onLayerVisibilityToggled()
             hidden.insert(it.key());
     }
     emit layerVisibilityChanged(hidden);
+}
+
+void MetadataSidebar::onLabelFieldToggled(const QString& layerId, const QString& fieldName, bool on)
+{
+    if (on) {
+        // Enforce at most one labeled field per layer: uncheck any sibling
+        // that was previously on. Use QSignalBlocker to avoid re-entering
+        // this slot.
+        auto layerIt = m_labelFieldButtons.find(layerId);
+        if (layerIt != m_labelFieldButtons.end()) {
+            for (auto it = layerIt.value().begin(); it != layerIt.value().end(); ++it) {
+                if (it.key() == fieldName)
+                    continue;
+                QToolButton* btn = it.value();
+                if (btn && btn->isChecked()) {
+                    QSignalBlocker blocker(btn);
+                    btn->setChecked(false);
+                    btn->setToolTip(tr("Show map labels"));
+                }
+            }
+        }
+    }
+
+    QHash<QString, QString> active;
+    for (auto layerIt = m_labelFieldButtons.constBegin();
+         layerIt != m_labelFieldButtons.constEnd(); ++layerIt) {
+        for (auto fieldIt = layerIt.value().constBegin();
+             fieldIt != layerIt.value().constEnd(); ++fieldIt) {
+            if (fieldIt.value()->isChecked()) {
+                active.insert(layerIt.key(), fieldIt.key());
+                break;
+            }
+        }
+    }
+    emit labeledFieldsChanged(active);
 }
 
 void MetadataSidebar::showJsonWindow()

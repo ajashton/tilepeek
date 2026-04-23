@@ -6,9 +6,11 @@
 #include "map/TileCache.h"
 #include "mbtiles/MBTilesMetadataParser.h"
 
+#include <QHash>
 #include <QMainWindow>
 #include <QPointF>
 #include <QSet>
+#include <QString>
 #include <memory>
 
 class EmptyStateWidget;
@@ -47,6 +49,7 @@ private:
     void clearCurrentFile();
     void onStatsReady(TileStatistics stats);
     void onLayerVisibilityChanged(const QSet<QString>& hiddenLayers);
+    void onLabeledFieldsChanged(const QHash<QString, QString>& fieldsByLayer);
     void onInspectRequested(TileKey tile, QPointF tileLocalPos, double tileSize, double scale);
     void onInspectCleared();
     void zoomToTilesetBounds();

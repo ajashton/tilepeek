@@ -49,7 +49,7 @@ std::optional<mvt::Tile> VectorTileProvider::readAndDecode(int zoom, int x, int 
 VectorTileProvider::RenderState VectorTileProvider::snapshotRenderState() const
 {
     QMutexLocker lock(&m_sourceMutex);
-    return RenderState{m_hiddenLayers, m_renderSize, m_dpr};
+    return RenderState{m_hiddenLayers, m_labeledFields, m_renderSize, m_dpr};
 }
 
 std::optional<QImage> VectorTileProvider::tileAt(int zoom, int x, int y)
@@ -59,6 +59,7 @@ std::optional<QImage> VectorTileProvider::tileAt(int zoom, int x, int y)
         return std::nullopt;
     auto state = snapshotRenderState();
     return VectorTileRenderer::render(*tile, m_layerColors, state.hiddenLayers,
+                                      state.labeledFields,
                                       state.renderSize, state.dpr);
 }
 
@@ -68,7 +69,8 @@ std::optional<QImage> VectorTileProvider::tileAtSize(int zoom, int x, int y, int
     if (!tile)
         return std::nullopt;
     auto state = snapshotRenderState();
-    return VectorTileRenderer::render(*tile, m_layerColors, state.hiddenLayers, size, state.dpr);
+    return VectorTileRenderer::render(*tile, m_layerColors, state.hiddenLayers,
+                                      state.labeledFields, size, state.dpr);
 }
 
 std::optional<UnclippedTileResult> VectorTileProvider::tileUnclipped(int zoom, int x, int y, int size)
@@ -78,6 +80,7 @@ std::optional<UnclippedTileResult> VectorTileProvider::tileUnclipped(int zoom, i
         return std::nullopt;
     auto state = snapshotRenderState();
     return VectorTileRenderer::renderUnclipped(*tile, m_layerColors, state.hiddenLayers,
+                                               state.labeledFields,
                                                size, state.dpr);
 }
 
@@ -97,6 +100,29 @@ QSet<QString> VectorTileProvider::hiddenLayers() const
 {
     QMutexLocker lock(&m_sourceMutex);
     return m_hiddenLayers;
+}
+
+void VectorTileProvider::setLabeledFields(const QHash<QString, QString>& fieldsByLayer)
+{
+    std::unordered_map<std::string, std::string> converted;
+    converted.reserve(static_cast<std::size_t>(fieldsByLayer.size()));
+    for (auto it = fieldsByLayer.cbegin(); it != fieldsByLayer.cend(); ++it) {
+        if (it.value().isEmpty())
+            continue;
+        converted.emplace(it.key().toStdString(), it.value().toStdString());
+    }
+    QMutexLocker lock(&m_sourceMutex);
+    m_labeledFields = std::move(converted);
+}
+
+QHash<QString, QString> VectorTileProvider::labeledFields() const
+{
+    QMutexLocker lock(&m_sourceMutex);
+    QHash<QString, QString> out;
+    out.reserve(static_cast<int>(m_labeledFields.size()));
+    for (const auto& [layer, field] : m_labeledFields)
+        out.insert(QString::fromStdString(layer), QString::fromStdString(field));
+    return out;
 }
 
 void VectorTileProvider::setRenderSize(int size)

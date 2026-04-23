@@ -45,4 +45,10 @@ QList<HitTestResult> hitTest(const Tile& tile,
 
 QString valueToString(const Value& value);
 
+// Look up a feature property by key name. Returns std::nullopt if the feature
+// does not carry that key in its tags. O(n) over the feature's tags list.
+std::optional<QString> featurePropertyAsString(const Feature& feature,
+                                               const Layer& layer,
+                                               const std::string& key);
+
 } // namespace mvt

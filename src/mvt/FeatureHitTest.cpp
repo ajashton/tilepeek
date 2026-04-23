@@ -31,6 +31,21 @@ QString valueToString(const Value& value)
         value);
 }
 
+std::optional<QString> featurePropertyAsString(const Feature& feature,
+                                               const Layer& layer,
+                                               const std::string& key)
+{
+    for (size_t i = 0; i + 1 < feature.tags.size(); i += 2) {
+        uint32_t keyIdx = feature.tags[i];
+        uint32_t valIdx = feature.tags[i + 1];
+        if (keyIdx >= layer.keys.size() || valIdx >= layer.values.size())
+            continue;
+        if (layer.keys[keyIdx] == key)
+            return valueToString(layer.values[valIdx]);
+    }
+    return std::nullopt;
+}
+
 static QVector<std::pair<QString, QString>> decodeProperties(const Feature& feature,
                                                               const Layer& layer)
 {

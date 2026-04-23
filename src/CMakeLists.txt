@@ -11,6 +11,7 @@ add_library(tilepeek_lib STATIC
     app/AboutDialog.cpp
     app/IconTheme.cpp
     app/MainWindow.cpp
+    map/LabelRenderer.cpp
     map/MapViewport.cpp
     map/RasterTileProvider.cpp
     map/TileCache.cpp
@@ -22,6 +23,7 @@ add_library(tilepeek_lib STATIC
     mbtiles/VectorMetadataParser.cpp
     model/TilesetMetadata.cpp
     mvt/FeatureHitTest.cpp
+    mvt/LabelAnchor.cpp
     mvt/MvtDecoder.cpp
     mvt/MvtGeometry.cpp
     mvt/ProtobufDecoder.cpp

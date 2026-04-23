@@ -8,11 +8,13 @@
 #include "mvt/MvtTypes.h"
 
 #include <QColor>
+#include <QHash>
 #include <QMutex>
 #include <QSet>
 #include <QStringList>
 #include <memory>
 #include <optional>
+#include <string>
 #include <unordered_map>
 
 class VectorTileProvider : public TileProvider {
@@ -31,6 +33,7 @@ public:
     int maxZoom() const override { return m_maxZoom; }
 
     void setHiddenLayers(const QSet<QString>& hidden);
+    void setLabeledFields(const QHash<QString, QString>& fieldsByLayer);
     void setRenderSize(int size);
     void setDevicePixelRatio(qreal dpr) override;
 
@@ -38,10 +41,12 @@ public:
     std::optional<mvt::Tile> decodeTileAt(int zoom, int x, int y);
     const std::unordered_map<std::string, QColor>& layerColors() const { return m_layerColors; }
     QSet<QString> hiddenLayers() const;
+    QHash<QString, QString> labeledFields() const;
 
 private:
     struct RenderState {
         QSet<QString> hiddenLayers;
+        std::unordered_map<std::string, std::string> labeledFields;
         int renderSize;
         qreal dpr;
     };
@@ -56,12 +61,13 @@ private:
     std::unordered_map<std::string, QColor> m_layerColors;
 
     // m_sourceMutex guards m_source (not concurrent-safe for sqlite) and
-    // mutable render state (m_hiddenLayers, m_renderSize, m_dpr). It is held
-    // only for the small critical sections — source reads and state snapshots —
-    // never while decoding or rasterizing, so multiple workers can rasterize
-    // in parallel.
+    // mutable render state (m_hiddenLayers, m_labeledFields, m_renderSize,
+    // m_dpr). It is held only for the small critical sections — source reads
+    // and state snapshots — never while decoding or rasterizing, so multiple
+    // workers can rasterize in parallel.
     mutable QMutex m_sourceMutex;
     QSet<QString> m_hiddenLayers;
+    std::unordered_map<std::string, std::string> m_labeledFields;
     int m_renderSize = 256;
     qreal m_dpr = 1.0;
 };

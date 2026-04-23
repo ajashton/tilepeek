@@ -8,6 +8,7 @@
 #include "mvt/FeatureHitTest.h"
 
 #include <QColor>
+#include <QHash>
 #include <QJsonObject>
 #include <QList>
 #include <QMap>
@@ -41,10 +42,12 @@ public:
 
 signals:
     void layerVisibilityChanged(const QSet<QString>& hiddenLayers);
+    void labeledFieldsChanged(const QHash<QString, QString>& fieldsByLayer);
     void featureIsolated(int index);
 
 private slots:
     void onLayerVisibilityToggled();
+    void onLabelFieldToggled(const QString& layerId, const QString& fieldName, bool on);
 
 private:
     void addSection(QVBoxLayout* layout, const QList<MetadataField>& fields,
@@ -71,6 +74,8 @@ private:
     // Vector mode (tabbed)
     QTabWidget* m_tabWidget = nullptr;
     QMap<QString, QToolButton*> m_layerVisibilityButtons;
+    // Keyed by [layerId][fieldName].
+    QMap<QString, QMap<QString, QToolButton*>> m_labelFieldButtons;
     QJsonObject m_rawJson;
     int m_inspectTabIndex = -1;
     int m_selectedFeatureIndex = -1;
