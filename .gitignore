@@ -2,3 +2,4 @@
 .clangd
 *.mbtiles
 *.pmtiles
+build/
