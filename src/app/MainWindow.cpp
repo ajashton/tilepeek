@@ -332,6 +332,8 @@ void MainWindow::loadMBTiles(const QString& path)
                 this, &MainWindow::onInspectCleared);
         connect(m_sidebar, &MetadataSidebar::featureIsolated,
                 m_mapViewport, &MapViewport::isolateInspectHighlight);
+        connect(m_sidebar, &MetadataSidebar::inspectClosed,
+                m_mapViewport, &MapViewport::clearInspectHighlights);
     } else {
         // Raster tile path
         auto provider = std::make_unique<RasterTileProvider>(
@@ -486,6 +488,8 @@ void MainWindow::loadPMTiles(const QString& path)
                 this, &MainWindow::onInspectCleared);
         connect(m_sidebar, &MetadataSidebar::featureIsolated,
                 m_mapViewport, &MapViewport::isolateInspectHighlight);
+        connect(m_sidebar, &MetadataSidebar::inspectClosed,
+                m_mapViewport, &MapViewport::clearInspectHighlights);
     } else {
         // Raster tile path
         auto provider = std::make_unique<RasterTileProvider>(
@@ -698,6 +702,8 @@ void MainWindow::clearCurrentFile()
                this, &MainWindow::onInspectCleared);
     disconnect(m_sidebar, &MetadataSidebar::featureIsolated,
                m_mapViewport, &MapViewport::isolateInspectHighlight);
+    disconnect(m_sidebar, &MetadataSidebar::inspectClosed,
+               m_mapViewport, &MapViewport::clearInspectHighlights);
     m_mapViewport->clear();
     m_mapViewport->setBackgroundColor(palette().color(QPalette::Window));
     m_tileProvider.reset();

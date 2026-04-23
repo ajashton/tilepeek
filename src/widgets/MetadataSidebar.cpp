@@ -23,6 +23,7 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QTextLayout>
+#include <QTabBar>
 #include <QTabWidget>
 #include <QToolButton>
 #include <QToolTip>
@@ -288,7 +289,20 @@ void MetadataSidebar::setVectorMetadata(const TilesetMetadata& metadata,
 
     // Create tabbed widget
     m_tabWidget = new QTabWidget(this);
+    m_tabWidget->setTabsClosable(true);
+    connect(m_tabWidget, &QTabWidget::tabCloseRequested, this, [this](int index) {
+        if (index == m_inspectTabIndex) {
+            clearInspectResults();
+            emit inspectClosed();
+        }
+    });
     m_outerLayout->addWidget(m_tabWidget);
+
+    auto disableTabClose = [this](int index) {
+        auto* bar = m_tabWidget->tabBar();
+        bar->setTabButton(index, QTabBar::LeftSide, nullptr);
+        bar->setTabButton(index, QTabBar::RightSide, nullptr);
+    };
 
     // Metadata tab (skips the json field)
     auto* metaWidget = buildMetadataWidget(metadata, true, messages);
@@ -303,7 +317,7 @@ void MetadataSidebar::setVectorMetadata(const TilesetMetadata& metadata,
     metaScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     metaScroll->setWidget(metaWidget);
     m_contentWidget = metaWidget;
-    m_tabWidget->addTab(metaScroll, tr("Metadata"));
+    disableTabClose(m_tabWidget->addTab(metaScroll, tr("Metadata")));
 
     // Layers tab
     auto* layersWidget = buildLayersWidget(vectorMeta.vectorLayers, layerColors);
@@ -312,7 +326,7 @@ void MetadataSidebar::setVectorMetadata(const TilesetMetadata& metadata,
     layersScroll->setFrameShape(QFrame::NoFrame);
     layersScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     layersScroll->setWidget(layersWidget);
-    m_tabWidget->addTab(layersScroll, tr("Layers"));
+    disableTabClose(m_tabWidget->addTab(layersScroll, tr("Layers")));
 
     m_rawJson = vectorMeta.rawJson;
 }
