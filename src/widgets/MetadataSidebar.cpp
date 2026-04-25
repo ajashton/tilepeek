@@ -136,6 +136,34 @@ private:
     int64_t m_globalMax;
 };
 
+class WrappingLabel;
+
+// A metadata field row that switches between a two-column layout (name |
+// value) and a single-column layout (name above value) based on the name
+// length and whether the value would wrap to more than two lines at the
+// current width.
+class MetadataFieldRow : public QWidget {
+public:
+    MetadataFieldRow(const QString& name, QWidget* valueWidget,
+                     WrappingLabel* valueLabel, QWidget* parent = nullptr);
+
+protected:
+    void resizeEvent(QResizeEvent* e) override;
+
+private:
+    void applyLayout(bool singleColumn);
+    void reconsiderLayout();
+
+    static constexpr int kHSpacing = 12;
+
+    QLabel* m_nameLabel = nullptr;
+    QWidget* m_valueWidget = nullptr;
+    WrappingLabel* m_valueLabel = nullptr;
+    QVBoxLayout* m_outerLayout = nullptr;
+    bool m_nameIsLong = false;
+    bool m_singleColumn = false;
+};
+
 // QLabel's word wrap uses Qt::TextWordWrap which never breaks mid-word.
 // This subclass uses WrapAtWordBoundaryOrAnywhere so that long unbroken
 // words (URLs, hashes, etc.) break mid-word rather than overflowing.
@@ -214,13 +242,89 @@ protected:
     }
 };
 
+MetadataFieldRow::MetadataFieldRow(const QString& name, QWidget* valueWidget,
+                                   WrappingLabel* valueLabel, QWidget* parent)
+    : QWidget(parent)
+    , m_valueWidget(valueWidget)
+    , m_valueLabel(valueLabel)
+    , m_nameIsLong(name.length() > 10)
+{
+    m_nameLabel = new QLabel(name, this);
+    m_nameLabel->setStyleSheet("font-weight: bold; color: #555;");
+    m_nameLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+
+    m_valueWidget->setParent(this);
+
+    applyLayout(m_nameIsLong);
+}
+
+void MetadataFieldRow::resizeEvent(QResizeEvent* e)
+{
+    QWidget::resizeEvent(e);
+    if (!m_nameIsLong)
+        reconsiderLayout();
+}
+
+void MetadataFieldRow::reconsiderLayout()
+{
+    if (!m_valueLabel || width() <= 0)
+        return;
+
+    // Width the value would have in two-column mode
+    int valueWidth = width() - m_nameLabel->sizeHint().width() - kHSpacing;
+    if (m_valueWidget != m_valueLabel) {
+        // Wrapper with a trailing 16px icon and 4px spacing
+        valueWidth -= 20;
+    }
+    if (valueWidth <= 0)
+        return;
+
+    int height = m_valueLabel->heightForWidth(valueWidth);
+    int lineHeight = m_valueLabel->fontMetrics().lineSpacing();
+    bool wrapsTooMuch = height > 2 * lineHeight + lineHeight / 4;
+
+    if (wrapsTooMuch != m_singleColumn)
+        applyLayout(wrapsTooMuch);
+}
+
+void MetadataFieldRow::applyLayout(bool singleColumn)
+{
+    m_singleColumn = singleColumn;
+
+    if (m_outerLayout) {
+        // Reparent children so they survive deletion of the layout
+        m_nameLabel->setParent(this);
+        m_valueWidget->setParent(this);
+        delete m_outerLayout;
+    }
+
+    m_outerLayout = new QVBoxLayout(this);
+    m_outerLayout->setContentsMargins(0, 0, 0, 0);
+    m_outerLayout->setSpacing(2);
+
+    if (singleColumn) {
+        m_outerLayout->addWidget(m_nameLabel);
+        m_outerLayout->addWidget(m_valueWidget);
+    } else {
+        auto* hbox = new QHBoxLayout;
+        hbox->setContentsMargins(0, 0, 0, 0);
+        hbox->setSpacing(kHSpacing);
+        hbox->addWidget(m_nameLabel, 0, Qt::AlignTop);
+        hbox->addWidget(m_valueWidget, 1);
+        m_outerLayout->addLayout(hbox);
+    }
+
+    m_nameLabel->show();
+    m_valueWidget->show();
+}
+
 } // namespace
 
 MetadataSidebar::MetadataSidebar(QWidget* parent)
     : QWidget(parent)
 {
     m_outerLayout = new QVBoxLayout(this);
-    m_outerLayout->setContentsMargins(0, 0, 0, 0);
+    m_outerLayout->setContentsMargins(0, 2, 0, 0);
 
     m_header = new QLabel(tr("Metadata"), this);
     m_header->setStyleSheet("font-weight: bold; font-size: 14px; padding: 8px;");
@@ -576,14 +680,13 @@ void MetadataSidebar::addSection(QVBoxLayout* layout, const QList<MetadataField>
         layout->addWidget(line);
     }
 
-    auto* form = new QFormLayout;
-    form->setContentsMargins(0, 4, 0, 4);
-    form->setHorizontalSpacing(12);
-    form->setVerticalSpacing(6);
-    form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+    auto* section = new QVBoxLayout;
+    section->setContentsMargins(0, 4, 0, 4);
+    section->setSpacing(6);
 
-    // Helper to collect messages for a field and create an icon widget
-    auto makeFieldRow = [&](const QString& fieldName, QWidget* valueWidget) {
+    // Wrap a value label with a trailing warning/error icon if any
+    // validation messages target the named field.
+    auto wrapWithIcon = [&](const QString& fieldName, WrappingLabel* valueLabel) -> QWidget* {
         QStringList fieldMessages;
         auto worstLevel = ValidationMessage::Level::Warning;
         for (const auto& msg : messages) {
@@ -595,13 +698,13 @@ void MetadataSidebar::addSection(QVBoxLayout* layout, const QList<MetadataField>
         }
 
         if (fieldMessages.isEmpty())
-            return valueWidget;
+            return valueLabel;
 
         auto* rowWidget = new QWidget;
         auto* rowLayout = new QHBoxLayout(rowWidget);
         rowLayout->setContentsMargins(0, 0, 0, 0);
         rowLayout->setSpacing(4);
-        rowLayout->addWidget(valueWidget, 1);
+        rowLayout->addWidget(valueLabel, 1);
 
         auto* icon = new QLabel;
         QString iconName = (worstLevel == ValidationMessage::Level::Error)
@@ -611,33 +714,29 @@ void MetadataSidebar::addSection(QVBoxLayout* layout, const QList<MetadataField>
         icon->setToolTip(fieldMessages.join("\n"));
         rowLayout->addWidget(icon, 0, Qt::AlignTop);
 
-        return static_cast<QWidget*>(rowWidget);
+        return rowWidget;
     };
 
     for (const auto& field : fields) {
-        auto* nameLabel = new QLabel(field.name);
-        nameLabel->setStyleSheet("font-weight: bold; color: #555;");
-
         auto* valueLabel = new WrappingLabel(field.value);
         valueLabel->setWordWrap(true);
         valueLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
 
-        form->addRow(nameLabel, makeFieldRow(field.name, valueLabel));
+        section->addWidget(new MetadataFieldRow(
+            field.name, wrapWithIcon(field.name, valueLabel), valueLabel));
     }
 
     // Missing field placeholders
     for (const auto& missing : missingFields) {
-        auto* nameLabel = new QLabel(missing.name);
-        nameLabel->setStyleSheet("font-weight: bold; color: #555;");
-
         auto* valueLabel = new WrappingLabel(tr("missing"));
         valueLabel->setStyleSheet("font-style: italic;");
         setSubduedTextColor(valueLabel);
 
-        form->addRow(nameLabel, makeFieldRow(missing.name, valueLabel));
+        section->addWidget(new MetadataFieldRow(
+            missing.name, wrapWithIcon(missing.name, valueLabel), valueLabel));
     }
 
-    layout->addLayout(form);
+    layout->addLayout(section);
 }
 
 void MetadataSidebar::addGeneralWarnings(QVBoxLayout* layout,
