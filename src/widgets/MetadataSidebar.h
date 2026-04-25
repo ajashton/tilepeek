@@ -11,9 +11,11 @@
 #include <QJsonObject>
 #include <QList>
 #include <QMap>
+#include <QPointer>
 #include <QSet>
 #include <QWidget>
 
+class QDialog;
 class QLabel;
 class QScrollArea;
 class QTabWidget;
@@ -73,6 +75,7 @@ private:
     QTabWidget* m_tabWidget = nullptr;
     QMap<QString, QToolButton*> m_layerVisibilityButtons;
     QJsonObject m_rawJson;
+    QPointer<QDialog> m_jsonDialog;
     int m_inspectTabIndex = -1;
     int m_selectedFeatureIndex = -1;
 };

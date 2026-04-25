@@ -646,10 +646,18 @@ void MetadataSidebar::onLayerVisibilityToggled()
 
 void MetadataSidebar::showJsonWindow()
 {
+    if (m_jsonDialog) {
+        m_jsonDialog->show();
+        m_jsonDialog->raise();
+        m_jsonDialog->activateWindow();
+        return;
+    }
+
     auto* dialog = new QDialog(this);
     dialog->setWindowTitle(tr("Metadata JSON"));
     dialog->resize(600, 500);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
+    m_jsonDialog = dialog;
 
     auto* layout = new QVBoxLayout(dialog);
 
